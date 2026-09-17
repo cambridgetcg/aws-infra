@@ -1,5 +1,10 @@
 # AWS credentials and IAM review — 17 September 2026
 
+**Later update, approximately 21:18 UTC:** both globally trusted Captioneer
+roles were [quarantined](CAPTIONEER_CLEANUP.md) after the follow-up request to
+handle them. The observations below preserve the earlier read-only review;
+their wildcard trust has since been replaced and role-local denies added.
+
 **The renewed login works, but it exposes administrator access to local agents.**
 The most urgent finding is separate: two Captioneer roles trust tokens from any
 GitHub repository, and one carries `AdministratorAccess`.

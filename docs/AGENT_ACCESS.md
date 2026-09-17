@@ -3,6 +3,8 @@
 **Reviewed 17 September 2026.** This document proposes how agents should receive
 AWS access. No roles, policies, assignments, keys or session settings were changed.
 Detailed observations belong in [the IAM review](IAM_REVIEW_2026-09-17.md).
+That original review was read-only; the later [Captioneer containment](CAPTIONEER_CLEANUP.md)
+changed two deployment roles without implementing the agent-access model here.
 
 ## What agents can reach today
 

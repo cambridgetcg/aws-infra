@@ -80,8 +80,8 @@
       "regions": [
         "us-east-1"
       ],
-      "mechanism": "Archived bootstrap shell and separate Terraform definitions; three live GitHub roles verified, critical wildcard trust on deploy/Terraform roles. Full workload/state ownership unverified.",
-      "status": "live-iam-verified-workload-unverified",
+      "mechanism": "Archived bootstrap and separate Terraform definitions; five live roles verified. Two globally trusted GitHub roles quarantined 2026-09-17. No direct consumers found across 17 enabled regions; deletion/rebuild and state ownership remain pending. See docs/CAPTIONEER_CLEANUP.md.",
+      "status": "live-iam-contained-cleanup-pending",
       "source_commit": "019d3619f76dc4fce58f38d997421ff3caf5c27a"
     }
   ]

@@ -1,5 +1,9 @@
 # Proposed inventory permissions
 
+For the two **applied** Captioneer quarantine documents, see the final section
+and [containment record](../docs/CAPTIONEER_CLEANUP.md). The inventory and
+staging/main allow policies below remain proposals.
+
 [agent-inventory-read.json](agent-inventory-read.json) is a **proposed, unattached
 identity permissions policy**, reviewed against the AWS documentation on
 17 September 2026. Creating this file grants no access. AWS Access Analyzer
@@ -123,3 +127,19 @@ is single-valued and must not use a set qualifier. The proposal uses plain
 `StringEquals`, with no set qualifier. Adding the explicit `ref` condition
 resolved the earlier repository/branch warning. This validation does not assume
 the role, test a real GitHub token, or prove that a workflow can deploy.
+
+## Applied Captioneer quarantine
+
+[captioneer-quarantine-permissions.json](captioneer-quarantine-permissions.json)
+and [captioneer-quarantine-trust.json](captioneer-quarantine-trust.json) were
+applied to exactly `captioneer-staging-github-terraform` and
+`captioneer-staging-github-deploy` on 17 September 2026 at approximately 21:18 UTC.
+The inline permission policy is named `AWSInfraCaptioneerQuarantine20260917`.
+It unconditionally denies all actions/resources. The trust document has a deny
+and no allow statements, blocking new assumptions without deleting the roles.
+
+Both documents passed AWS validation without findings; their live copies matched
+exactly, and all 12 sampled principal-policy decisions were explicit denies.
+The [cleanup record](../docs/CAPTIONEER_CLEANUP.md) explains session/verification
+limits, dependency checks, and the pending retirement/rebuild choice. Do not
+remove quarantine or restore the former wildcard trust as a rollback.
