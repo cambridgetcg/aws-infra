@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "projects": [
+    {
+      "id": "commerce",
+      "repository": "https://github.com/cambridgetcg/Cambridge-TCG-monorepo",
+      "path": "docs/operations/aws-roadmap.md",
+      "account_alias": "cambridge-tcg",
+      "regions": [
+        "us-east-1"
+      ],
+      "mechanism": "Application SDK clients and imperative ECS deployment scripts; database provisioning owner requires reconciliation",
+      "status": "source-defined-unverified",
+      "source_commit": "056d52fb1e51d1aa45e2e208f84034a92f1446e2"
+    },
+    {
+      "id": "rewardspro-legacy",
+      "repository": "https://github.com/cambridgetcg/Cambridge-TCG-monorepo",
+      "path": "apps/rewardspro/infrastructure/terraform",
+      "account_alias": "rewardspro",
+      "regions": [
+        "eu-north-1",
+        "us-east-1"
+      ],
+      "mechanism": "Legacy serverless Terraform; identical standalone rewardspro-production copy; actual backend owner unverified",
+      "status": "source-defined-unverified",
+      "source_commit": "056d52fb1e51d1aa45e2e208f84034a92f1446e2"
+    },
+    {
+      "id": "rewardspro-v2",
+      "repository": "https://github.com/cambridgetcg/Cambridge-TCG-monorepo",
+      "path": "apps/rewardspro-api/infrastructure/terraform",
+      "account_alias": null,
+      "regions": [
+        "eu-west-2"
+      ],
+      "mechanism": "Separate ECS/RDS/network Terraform with partial S3 backend and CloudFormation bootstrap; target account unverified",
+      "status": "source-defined-unverified",
+      "source_commit": "056d52fb1e51d1aa45e2e208f84034a92f1446e2"
+    },
+    {
+      "id": "pricing",
+      "repository": "https://github.com/cambridgetcg/tcg-pricing-backend",
+      "path": "infrastructure/deploy",
+      "account_alias": "cambridge-tcg",
+      "regions": [
+        "us-east-1"
+      ],
+      "mechanism": "Archived SAM/CloudFormation source; current deployment owner and supplied RDS/VPC input ownership require confirmation",
+      "status": "archived-source-unverified",
+      "source_commit": "7331a85404bc3cbf6887bcce0c787b43060cfa28"
+    },
+    {
+      "id": "cashloom",
+      "repository": "https://github.com/cambridgetcg/cashloom-aws",
+      "path": "terraform/phase0-security-baseline",
+      "account_alias": null,
+      "regions": [
+        "us-east-1"
+      ],
+      "mechanism": "Existing account security-baseline Terraform; future treasury architecture is design-only; deployment/account unverified",
+      "status": "source-defined-unverified",
+      "source_commit": "67be52f6cfa0493d9f77592d35196da4bf8d30c5"
+    },
+    {
+      "id": "estate-watchdog",
+      "repository": "https://github.com/cambridgetcg/estate-watchdog",
+      "path": "index.mjs",
+      "account_alias": null,
+      "regions": [],
+      "mechanism": "Existing AWS exposure/cost reporting automation; deployed schedule and notification settings not verified",
+      "status": "source-defined-unverified",
+      "source_commit": "c8dfd9a1e38e88574e23fc3a40e2046400e3ed98"
+    }
+  ]
+}

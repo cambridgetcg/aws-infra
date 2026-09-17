@@ -1,0 +1,36 @@
+# Local AWS authentication and application configuration
+.aws/
+.env
+.env.*
+!.env.example
+credentials
+credentials.*
+*.pem
+*.key
+*.p12
+
+# Inventories can identify private resources; keep them local.
+inventory/local/
+
+# Terraform state and plans can contain secrets.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.plan
+tfplan
+*.tfvars
+*.tfvars.json
+*.auto.tfvars
+crash.log
+crash.*.log
+
+# Build/editor artifacts
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+node_modules/
+.DS_Store
+.idea/
+.vscode/

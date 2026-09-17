@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "accounts": [
+    {
+      "alias": "cambridge-tcg",
+      "account_id": "034362054546",
+      "default_regions": [
+        "us-east-1"
+      ],
+      "verification": "documented-unverified",
+      "source": "Historical local AWS account notes; commerce/pricing source defaults to us-east-1. Confirm the account's current workloads with an authenticated inventory."
+    },
+    {
+      "alias": "rewardspro",
+      "account_id": "043509841549",
+      "default_regions": [
+        "eu-west-2",
+        "eu-north-1",
+        "us-east-1"
+      ],
+      "verification": "documented-unverified",
+      "source": "Historical account notes name us-east-1; legacy Terraform defaults to eu-north-1 and separate v2 source defaults to eu-west-2. These are candidate scan regions, not verified deployment locations or proof both stacks belong to this account."
+    }
+  ]
+}
