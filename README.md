@@ -11,8 +11,8 @@ and responsibilities are defined.
 
 ## Start here
 
-Requirements: macOS or Linux, Python 3.11+, Git, and AWS CLI v2 for authenticated reads. The
-offline plan and tests need only Python.
+Requirements: macOS or Linux, Python 3.11+, Git, and AWS CLI v2 for authenticated reads.
+Offline plans and tests need no AWS credentials; the tests also use Git.
 
 ```sh
 make check
