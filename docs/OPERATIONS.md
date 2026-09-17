@@ -42,9 +42,10 @@ selected regions. It is not a billing, security or backup audit. Exit status `0`
 means the selected scan completed, `2` means partial collection, and `1` means a
 setup, account-verification or report-writing error.
 
-The initial 17 September 2026 access check had an expired login grant; no live
-scan was established during repository setup. Preserve that distinction until
-a successful scan provides actual observations.
+After login renewal on 17 September 2026, Cambridge TCG's selected inventory
+completed. [Current status](STATUS.md) records that scope, and the
+[IAM review](IAM_REVIEW_2026-09-17.md) records the administrator credential and
+role-trust findings. A successful metadata scan does not establish least privilege.
 
 ## Carry a named change through to completion
 

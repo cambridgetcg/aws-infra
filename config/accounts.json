@@ -7,8 +7,9 @@
       "default_regions": [
         "us-east-1"
       ],
-      "verification": "documented-unverified",
-      "source": "Historical local AWS account notes; commerce/pricing source defaults to us-east-1. Confirm the account's current workloads with an authenticated inventory."
+      "verification": "identity-and-selected-inventory-verified",
+      "source": "STS verified Cambridge TCG account on 2026-09-17; selected service metadata inventoried in us-east-1 plus global S3 names. Other regions and infrastructure state ownership remain unverified. See docs/IAM_REVIEW_2026-09-17.md.",
+      "observed_at": "2026-09-17"
     },
     {
       "alias": "rewardspro",

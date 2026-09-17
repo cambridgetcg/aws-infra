@@ -71,6 +71,18 @@
       "mechanism": "Existing AWS exposure/cost reporting automation; deployed schedule and notification settings not verified",
       "status": "source-defined-unverified",
       "source_commit": "c8dfd9a1e38e88574e23fc3a40e2046400e3ed98"
+    },
+    {
+      "id": "captioneer",
+      "repository": "https://github.com/cambridgetcg/captioneer",
+      "path": "infrastructure/scripts/bootstrap-aws.sh",
+      "account_alias": "cambridge-tcg",
+      "regions": [
+        "us-east-1"
+      ],
+      "mechanism": "Archived bootstrap shell and separate Terraform definitions; three live GitHub roles verified, critical wildcard trust on deploy/Terraform roles. Full workload/state ownership unverified.",
+      "status": "live-iam-verified-workload-unverified",
+      "source_commit": "019d3619f76dc4fce58f38d997421ff3caf5c27a"
     }
   ]
 }

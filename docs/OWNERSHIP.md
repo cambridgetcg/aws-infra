@@ -1,8 +1,9 @@
 # AWS ownership map
 
 **Source inspection: 17 September 2026.** This map identifies existing code and
-its responsibilities. AWS authentication was unavailable, so it does not claim
-that each defined resource is deployed or assign live state to a new owner.
+its responsibilities. Later authenticated inspection verified selected Cambridge
+TCG metadata and IAM roles; see the [IAM review](IAM_REVIEW_2026-09-17.md).
+That observation does not establish deployment/state ownership for every stack.
 
 ## What this repository owns
 
@@ -18,6 +19,7 @@ only through a concrete stack addition or explicit state/ownership transfer.
 | **Pricing / Cardforum ingestion** | [Archived pricing repository](https://github.com/cambridgetcg/tcg-pricing-backend/tree/7331a85404bc3cbf6887bcce0c787b43060cfa28/infrastructure/deploy) | SAM/CloudFormation definitions for API Gateway/Lambda, scrapers, Step Functions, S3, DynamoDB, queues and auxiliary auth/network/cache templates. | Source default `us-east-1`. Repository is archived; identify the current deployment owner before making changes. Existing RDS/VPC inputs are not proof this stack provisions them. |
 | **CashLoom account baseline** | [Phase 0 Terraform](https://github.com/cambridgetcg/cashloom-aws/tree/67be52f6cfa0493d9f77592d35196da4bf8d30c5/terraform/phase0-security-baseline), [architecture](https://github.com/cambridgetcg/cashloom-aws/blob/67be52f6cfa0493d9f77592d35196da4bf8d30c5/ARCHITECTURE.md) | GuardDuty, AWS Config, CloudTrail/S3, KMS, IAM Access Analyzer/password policy and alerts. Later treasury phases are design. | Source default `us-east-1`; target account/deployment unverified. Reconcile this baseline before adding competing account-wide infrastructure. |
 | **Estate watchdog** | [Inspection/report handler](https://github.com/cambridgetcg/estate-watchdog/blob/c8dfd9a1e38e88574e23fc3a40e2046400e3ed98/index.mjs), [deployment source](https://github.com/cambridgetcg/estate-watchdog/blob/c8dfd9a1e38e88574e23fc3a40e2046400e3ed98/deploy.sh) | Reads EC2/RDS exposure and snapshots plus Cost Explorer, then publishes a report to SNS. | Deployment source uses `us-east-1`; handler lists six candidate inspection regions. Actual deployment/schedule/delivery unverified. Its handler sends notifications, so the local collector does not invoke it. |
+| **Captioneer staging IAM** | [Archived bootstrap source](https://github.com/cambridgetcg/captioneer/blob/019d3619f76dc4fce58f38d997421ff3caf5c27a/infrastructure/scripts/bootstrap-aws.sh), [separate Terraform role](https://github.com/cambridgetcg/captioneer/blob/019d3619f76dc4fce58f38d997421ff3caf5c27a/infrastructure/terraform/iam.tf) | Three live GitHub roles verified in Cambridge TCG. Bootstrap deploy/Terraform roles have critical wildcard trust; Terraform role has AdministratorAccess. | Bootstrap defaults staging / `us-east-1`; IAM roles are account-wide. Repository archived; full workload/state and workflow role linkage unverified. [Proposed repair](IAM_REVIEW_2026-09-17.md). |
 
 The monorepo's current GitHub metadata describes it as a mirror of
 `codeberg.org/zerone-dev/Cambridge-TCG` and a Vercel build source. Follow the
@@ -26,7 +28,8 @@ is authoritative for a change. The links above pin the inspected GitHub bytes.
 
 ## Account and region reconciliation
 
-[accounts.json](../config/accounts.json) retains two documented account IDs;
+[accounts.json](../config/accounts.json) retains two account IDs, with Cambridge
+TCG's identity now verified and RewardsPro still documented-only;
 [projects.json](../config/projects.json) records provisional associations.
 Confirm them through STS plus actual stack/resource evidence. Do not infer that
 RewardsPro legacy and v2 use the same account because they share a product name.
@@ -36,6 +39,11 @@ Three RewardsPro region references coexist: old local account notes say
 `eu-west-2`. Those are candidate places to inspect, not confirmed live placement.
 Extra regions can be selected explicitly; the registry is not an all-region
 coverage claim.
+
+Live `cashloom-sec-trail` logging and `cashloom-sec-analyzer` were observed in
+Cambridge TCG. These names support a baseline association, but the complete
+CashLoom Terraform state/deployment has not been reconciled; its registry entry
+remains provisional.
 
 ## How to add an owner
 

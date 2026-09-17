@@ -57,6 +57,10 @@ def check():
     for directory in (ROOT / "scripts", ROOT / "tests"):
         for path in directory.glob("*.py"):
             ast.parse(path.read_text(), filename=str(path))
+    for path in (ROOT / "policies").glob("*.json"):
+        policy = json.loads(path.read_text())
+        if not isinstance(policy, dict) or policy.get("Version") != "2012-10-17" or not isinstance(policy.get("Statement"), list) or not policy["Statement"]:
+            errors.append(f"Invalid IAM policy document: {path.name}")
 
     # Check the actual Git policy rather than assuming a comment protects output.
     for local in ("inventory/local/example.json", ".env", "terraform.tfstate", "tfplan", "secret.tfvars", ".aws/credentials"):

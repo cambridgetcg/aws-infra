@@ -9,6 +9,11 @@ application repositories continue to own their Terraform, SAM and deployment
 scripts. New shared infrastructure can be added here when its account, state
 and responsibilities are defined.
 
+The [17 September IAM review](docs/IAM_REVIEW_2026-09-17.md) confirms live access
+to Cambridge TCG and identifies critical GitHub role-trust exposure. See
+[agent access](docs/AGENT_ACCESS.md) for credential handling and the proposed
+separation between discovery, deployment and administration.
+
 ## Start here
 
 Requirements: macOS or Linux, Python 3.11+, Git, and AWS CLI v2 for authenticated reads.
@@ -68,6 +73,9 @@ flowchart TB
 | [config/projects.json](config/projects.json) | Projects, existing source owners and provisional account associations. |
 | [docs/OWNERSHIP.md](docs/OWNERSHIP.md) | Human-readable map of what already exists and who changes it. |
 | [docs/ACCESS.md](docs/ACCESS.md) | Temporary authentication and collector permissions. |
+| [docs/AGENT_ACCESS.md](docs/AGENT_ACCESS.md) | Current credential boundary and proposed agent access tiers. |
+| [docs/IAM_REVIEW_2026-09-17.md](docs/IAM_REVIEW_2026-09-17.md) | Verified IAM findings, priorities and review limits. |
+| [policies/](policies/README.md) | Proposed, unattached inventory permissions and Captioneer trust repair. |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Inventory, change, verification and recovery workflow. |
 | [docs/STATUS.md](docs/STATUS.md) | Dated observations and outstanding setup. |
 | [infrastructure/](infrastructure/README.md) | Boundary for shared stacks adopted into this repository. |
@@ -80,12 +88,17 @@ flowchart TB
 The collector covers selected EC2 instance/VPC metadata, Lambda functions, RDS
 instances, ECS clusters, DynamoDB tables, SQS queues, CloudFormation stack
 summaries and global S3 bucket names. AWS CLI pagination remains enabled.
-It does not enumerate every AWS service, every region, resource contents,
-application configuration, secrets, billing, or effective IAM permissions.
-Collection failures and unscanned scope are part of the report.
+It does not enumerate every AWS service, every region, billing, or effective IAM
+permissions. Saved reports exclude application configuration and secret fields.
+Some APIs, especially Lambda listing, can return environment configuration to
+the CLI before local filtering; see the [permission analysis](policies/README.md).
+Output filtering is not an IAM restriction. Collection failures and unscanned
+scope are part of the report.
 
-The account IDs and source definitions are **documented, not live-verified**.
-The initial AWS session was expired; no successful resource inventory is claimed.
+Cambridge TCG's identity and selected `us-east-1` metadata plus global S3 names
+were verified after login renewal on 17 September 2026. RewardsPro remains
+unverified. Source/state ownership and other regions are not established by that
+scan. The initial expired-session observation is superseded by [current status](docs/STATUS.md).
 RewardsPro has conflicting historical region references, so its defaults
 include `eu-west-2`, `eu-north-1` and `us-east-1` pending verification of the
 separate v2 and legacy stacks and their actual account ownership.
