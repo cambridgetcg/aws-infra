@@ -3,7 +3,9 @@
 
 import argparse
 import base64
+from contextlib import contextmanager
 from datetime import datetime
+import fcntl
 import hashlib
 import io
 import ipaddress
@@ -25,6 +27,7 @@ PROFILES = {"inventory": "cambridge-agent-inventory", "iam-audit": "cambridge-ia
 PERMISSION_SETS = {"inventory": "AWSInfraInventory", "iam-audit": "AWSInfraIAMAudit"}
 MAX_ARCHIVE = 8 * 1024 * 1024
 MAX_HANDOFF = 2 * MAX_ARCHIVE
+MAX_MODEL_AUTH = 65536
 
 
 class Rejected(Exception):
@@ -108,7 +111,7 @@ def base_environment():
             "AWS_EC2_METADATA_DISABLED": "true", "AWS_PAGER": "", "AWS_CLI_AUTO_PROMPT": "off"}
 
 
-def bounded_command(command, env, *, timeout, limit, payload=None):
+def bounded_command(command, env, *, timeout, limit, payload=None, accepted_codes=(0,)):
     """Drain bounded stdout while streaming stdin; no unbounded communicate() buffer."""
     process = None
     try:
@@ -141,7 +144,7 @@ def bounded_command(command, env, *, timeout, limit, payload=None):
                             selector.unregister(key.fileobj)
                             key.fileobj.close()
             returncode = process.wait(timeout=max(0.001, deadline - time.monotonic()))
-        require(returncode == 0, "Required command failed; output suppressed")
+        require(returncode in accepted_codes, "Required command failed; output suppressed")
         return bytes(output)
     except (OSError, subprocess.TimeoutExpired):
         raise Rejected("Required command failed or timed out; output suppressed") from None
@@ -159,9 +162,91 @@ def capture_json(command, env, timeout=30):
     return read_json(io.BytesIO(bounded_command(command, env, timeout=timeout, limit=65536)), 65536)
 
 
-def validate_model_key(key):
-    require(isinstance(key, str) and 8 <= len(key) <= 4096 and not any(c in key for c in "\r\n\x00"),
-            "Missing dedicated model API key")
+def validate_model_auth(value):
+    """Accept only the known Codex ChatGPT file-cache shape, never API auth."""
+    require(isinstance(value, dict) and set(value) <= {"auth_mode", "OPENAI_API_KEY", "tokens", "last_refresh"}
+            and value.get("auth_mode", "chatgpt") == "chatgpt" and value.get("OPENAI_API_KEY") is None,
+            "Expected dedicated ChatGPT subscription authentication; log in again")
+    tokens = value.get("tokens")
+    require(isinstance(tokens, dict) and set(tokens) == {"id_token", "access_token", "refresh_token", "account_id"},
+            "Unsupported ChatGPT token cache; log in again")
+    for key, token in tokens.items():
+        require(isinstance(token, str) and 1 <= len(token) <= (256 if key == "account_id" else 16384)
+                and not any(character.isspace() or ord(character) < 32 for character in token),
+                "Malformed ChatGPT authentication; log in again")
+    try:
+        parts = tokens["id_token"].split(".")
+        require(len(parts) == 3, "Malformed ChatGPT identity token; log in again")
+        claims = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
+        subject = claims.get("sub")
+        require(isinstance(subject, str) and 1 <= len(subject) <= 256,
+                "Missing ChatGPT user identity; log in again")
+        if value.get("last_refresh") is not None:
+            require(isinstance(value["last_refresh"], str), "Invalid ChatGPT refresh timestamp")
+            require(datetime.fromisoformat(value["last_refresh"].replace("Z", "+00:00")).tzinfo is not None,
+                    "Invalid ChatGPT refresh timestamp")
+    except (ValueError, TypeError, AttributeError):
+        raise Rejected("Malformed ChatGPT token cache; log in again") from None
+    require(len(json.dumps(value).encode()) <= MAX_MODEL_AUTH, "ChatGPT token cache exceeds the size limit")
+    # Structural continuity, not offline JWT signature verification or attestation.
+    return tokens["account_id"], subject
+
+
+@contextmanager
+def model_auth_file(path):
+    """Lock a private runtime-owned file; replace through its pinned parent fd."""
+    path = Path(path)
+    require(path.is_absolute() and path.parent.resolve() == path.parent and path.name not in ("", ".", ".."),
+            "Use an absolute canonical dedicated runtime authentication path")
+    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    lock = None
+    try:
+        info = os.fstat(directory)
+        require(info.st_uid == os.getuid() and not info.st_mode & 0o077,
+                "Authentication directory must be runtime-owned and private")
+        lock = os.open(".subscription-auth.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600, dir_fd=directory)
+        info = os.fstat(lock)
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid() and info.st_nlink == 1
+                and not info.st_mode & 0o077, "Authentication lock must be a private owned file")
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise Rejected("Another task holds this subscription login") from None
+        descriptor = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+        with os.fdopen(descriptor, "rb") as stream:
+            original = os.fstat(stream.fileno())
+            require(stat.S_ISREG(original.st_mode) and original.st_uid == os.getuid() and original.st_nlink == 1
+                    and not original.st_mode & 0o077, "Authentication must be a private runtime-owned regular file")
+            authentication = read_json(stream, MAX_MODEL_AUTH)
+        validate_model_auth(authentication)
+
+        def replace(value):
+            nonlocal original
+            current = os.stat(path.name, dir_fd=directory, follow_symlinks=False)
+            require((current.st_dev, current.st_ino, current.st_mtime_ns, current.st_size)
+                    == (original.st_dev, original.st_ino, original.st_mtime_ns, original.st_size),
+                    "Authentication file changed during the task; log in again")
+            temporary = ".subscription-auth-" + secrets.token_hex(16)
+            descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                                 0o600, dir_fd=directory)
+            try:
+                with os.fdopen(descriptor, "wb") as stream:
+                    stream.write(json.dumps(value).encode())
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.replace(temporary, path.name, src_dir_fd=directory, dst_dir_fd=directory)
+                original = os.stat(path.name, dir_fd=directory, follow_symlinks=False)
+                os.fsync(directory)
+            finally:
+                try:
+                    os.unlink(temporary, dir_fd=directory)
+                except FileNotFoundError:
+                    pass
+        yield authentication, replace
+    finally:
+        if lock is not None:
+            os.close(lock)
+        os.close(directory)
 
 
 def verified_identity(credentials, role):
@@ -183,8 +268,7 @@ def verified_identity(credentials, role):
 def issue(args):
     manifest = operator_json(args.manifest)
     role = validate_manifest(manifest, args.tier)
-    require(args.handoff_fd >= 3 and args.model_key_fd >= 3 and args.handoff_fd != args.model_key_fd,
-            "Use separate private file descriptors for key input and handoff")
+    require(args.handoff_fd >= 3, "Use a private file descriptor for the AWS handoff")
     kind = os.fstat(args.handoff_fd).st_mode
     require(stat.S_ISFIFO(kind) or stat.S_ISSOCK(kind), "Credential handoff must be a pipe or socket, never a terminal/file")
     env = base_environment()
@@ -195,10 +279,7 @@ def issue(args):
                                 PROFILES[args.tier], "--format", "process"], env)
     validate_credentials(credentials)
     verified_identity(credentials, role)  # Reject admin/wrong-role credentials before transporting them.
-    with os.fdopen(os.dup(args.model_key_fd), "rb") as stream:
-        key = stream.read(4097).decode("utf-8").strip()
-    validate_model_key(key)
-    envelope = {"tier": args.tier, "credentials": credentials, "model_api_key": key}
+    envelope = {"tier": args.tier, "credentials": credentials}
     with os.fdopen(os.dup(args.handoff_fd), "wb") as stream:
         stream.write(json.dumps(envelope).encode())
 
@@ -344,11 +425,14 @@ def docker_command(manifest, name, network_id, proxy_ip):
     return command
 
 
-def redact(text, envelope):
-    for secret in [envelope["model_api_key"], *[envelope["credentials"][key]
-                  for key in ("AccessKeyId", "SecretAccessKey", "SessionToken")]]:
+def redact(text, envelope, *updated_auth):
+    secrets_to_remove = [envelope["credentials"][key] for key in ("AccessKeyId", "SecretAccessKey", "SessionToken")]
+    for authentication in (envelope.get("model_auth", {}), *updated_auth):
+        secrets_to_remove.extend(authentication.get("tokens", {}).get(key, "")
+                                 for key in ("id_token", "access_token", "refresh_token"))
+    for secret in filter(None, secrets_to_remove):
         text = text.replace(secret, "[REDACTED]")
-    return text
+    return re.sub(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", "[REDACTED]", text)
 
 
 def project_result(result, task, credentials, role):
@@ -361,17 +445,51 @@ def project_result(result, task, credentials, role):
     return {key: result[key] for key in ("task_id", "account_id", "principal_arn", "principal_id", "expires_at", "result")}
 
 
-def run(args):
+def require_runtime_user():
     require(os.getuid() not in (0, 501), "Run the executor launcher under a separate unprivileged OS account")
     require(sys.platform != "darwin" or 80 not in os.getgroups(), "Executor OS account must not be an administrator")
+
+
+def probe(args):
+    """Run the separate credential-free network check with the task's Docker controls."""
+    require_runtime_user()
+    manifest = operator_json(args.manifest)
+    config = operator_json(args.probe_config)
+    require(set(config) == {"proxy_ipv4", "targets"}, "Unexpected network probe inputs")
+    env = base_environment()
+    env["HOME"] = str(Path.home())
+    network_id, proxy_ip = inspect_network(manifest, env)
+    require(config.get("proxy_ipv4") == proxy_ip, "Probe must target the inspected proxy endpoint")
+    name = "aws-agent-probe-" + secrets.token_hex(16)
+    command = docker_command(manifest, name, network_id, proxy_ip)
+    command = command[:-2] + ["/opt/probe_network.py", "--config", "-"]
+    try:
+        output = bounded_command(command, env, payload=json.dumps(config).encode(),
+                                 timeout=120, limit=131072, accepted_codes=(0, 1, 2))
+        report = read_json(io.BytesIO(output), 131072)
+        require(report.get("schema_version") == 1 and report.get("activation_ready") is False
+                and report.get("network_checks_status") in ("passed", "failed", "inconclusive"),
+                "Unexpected network probe report")
+        report["launcher_evidence"] = {"image": manifest["image"], "network_id": network_id,
+                                       "proxy_container_id": manifest["proxy_identity"]["container_id"],
+                                       "proxy_config_sha256": manifest["proxy_identity"]["config_sha256"]}
+        sys.stdout.write(json.dumps(report) + "\n")
+        return 0 if report["network_checks_status"] == "passed" else 1
+    finally:
+        subprocess.run(["docker", "rm", "--force", name], env=env, stdin=subprocess.DEVNULL,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+
+
+def run(args):
+    require_runtime_user()
     manifest = operator_json(args.manifest)
     role = validate_manifest(manifest, args.tier)
     task = operator_json(args.task)
     validate_task(task)
     envelope = read_json(sys.stdin.buffer, MAX_HANDOFF)
-    require(envelope.get("tier") == args.tier, "Credential tier does not match the requested task")
+    require(set(envelope) == {"tier", "credentials"} and envelope.get("tier") == args.tier,
+            "Expected only the requested AWS credential handoff")
     expiry = validate_credentials(envelope.get("credentials"))
-    validate_model_key(envelope.get("model_api_key"))
     with Path(args.archive).open("rb") as stream:
         raw = stream.read(MAX_ARCHIVE + 1)
     unpack(raw)
@@ -381,15 +499,28 @@ def run(args):
     network_id, proxy_ip = inspect_network(manifest, env)
     command = docker_command(manifest, name, network_id, proxy_ip)
     envelope.update({"role": role, "task": task, "archive": base64.b64encode(raw).decode()})
-    try:
-        output = bounded_command(command, env, payload=json.dumps(envelope).encode(),
-                                 timeout=max(1, expiry - time.time()), limit=524288)
-        result = read_json(io.BytesIO(output), 524288)
-        result = project_result(result, task, envelope["credentials"], role)
-        sys.stdout.write(redact(json.dumps(result), envelope) + "\n")
-    finally:
-        subprocess.run(["docker", "rm", "--force", name], env=env, stdin=subprocess.DEVNULL,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+    with model_auth_file(args.model_auth) as (authentication, save_auth):
+        anchor = validate_model_auth(authentication)
+        envelope["model_auth"] = authentication
+        # Consume the saved login before launching. A crash, failed task or lost
+        # refresh response leaves no stale token available for automatic reuse.
+        save_auth({"auth_mode": "chatgpt", "OPENAI_API_KEY": None, "tokens": None, "last_refresh": None})
+        try:
+            output = bounded_command(command, env, payload=json.dumps(envelope).encode(),
+                                     timeout=max(1, expiry - time.time()), limit=524288)
+            returned = read_json(io.BytesIO(output), 524288)
+            require(set(returned) == {"result", "model_auth"}, "Unexpected private executor envelope")
+            require(validate_model_auth(returned["model_auth"]) == anchor,
+                    "ChatGPT account or user changed; log in again")
+            result = project_result(returned["result"], task, envelope["credentials"], role)
+            safe_output = redact(json.dumps(result), envelope, returned["model_auth"])
+            save_auth(returned["model_auth"])
+            sys.stdout.write(safe_output + "\n")
+        except BaseException:
+            raise Rejected("Subscription task did not complete safely; use a fresh dedicated device-code login") from None
+        finally:
+            subprocess.run(["docker", "rm", "--force", name], env=env, stdin=subprocess.DEVNULL,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
 
 
 def entry():
@@ -399,7 +530,7 @@ def entry():
     tier, role = envelope.get("tier"), envelope.get("role")
     validate_manifest({"account_id": ACCOUNT, "region": "us-east-1", "roles": {tier: role}}, tier)
     expiry = validate_credentials(envelope.get("credentials"))
-    validate_model_key(envelope.get("model_api_key"))
+    model_anchor = validate_model_auth(envelope.get("model_auth"))
     task = envelope.get("task", {})
     validate_task(task)
     credentials = envelope["credentials"]
@@ -411,14 +542,19 @@ def entry():
     (session / "credentials").write_text("[task]\naws_access_key_id = " + credentials["AccessKeyId"]
         + "\naws_secret_access_key = " + credentials["SecretAccessKey"]
         + "\naws_session_token = " + credentials["SessionToken"] + "\n")
+    codex_home = Path("/home/agent/.codex")
+    codex_home.mkdir(mode=0o700)
+    (codex_home / "auth.json").write_text(json.dumps(envelope["model_auth"]))
+    (codex_home / "config.toml").write_text('forced_login_method = "chatgpt"\ncli_auth_credentials_store = "file"\n')
     env = base_environment()
-    env.update({"HOME": "/home/agent", "CODEX_API_KEY": envelope["model_api_key"],
+    env.update({"HOME": "/home/agent", "CODEX_HOME": str(codex_home),
                 "AWS_PROFILE": "task", "AWS_CONFIG_FILE": "/run/session/config",
                 "AWS_SHARED_CREDENTIALS_FILE": "/run/session/credentials", "AWS_REGION": "us-east-1",
                 "HTTP_PROXY": "http://egress:3128", "HTTPS_PROXY": "http://egress:3128"})
     # The outer container is the sandbox. No host tools, host config, MCP setup or caches are imported.
     command = ["codex", "exec", "--ephemeral", "--ignore-user-config", "--ignore-rules", "--skip-git-repo-check",
                "--sandbox", "danger-full-access", "-c", 'approval_policy="never"', "-c", 'web_search="disabled"',
+               "-c", 'forced_login_method="chatgpt"', "-c", 'cli_auth_credentials_store="file"',
                "--model", task["model"], "--cd", "/work", "--output-last-message", "/run/session/result.txt", "-"]
     process = subprocess.Popen(command, env=env, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
                                stderr=subprocess.DEVNULL, start_new_session=True)
@@ -432,30 +568,38 @@ def entry():
     with (session / "result.txt").open("rb") as stream:
         result = stream.read(262145)
     require(len(result) <= 262144, "Task result is too large")
-    print(json.dumps({"task_id": task["task_id"], "account_id": ACCOUNT, "principal_arn": identity["Arn"], "principal_id": identity["UserId"],
-                      "expires_at": credentials["Expiration"], "result": redact(result.decode("utf-8", "replace"), envelope)}))
+    updated_auth = operator_json(codex_home / "auth.json")
+    require(validate_model_auth(updated_auth) == model_anchor, "ChatGPT account or user changed; log in again")
+    result = {"task_id": task["task_id"], "account_id": ACCOUNT, "principal_arn": identity["Arn"], "principal_id": identity["UserId"],
+              "expires_at": credentials["Expiration"], "result": redact(result.decode("utf-8", "replace"), envelope, updated_auth)}
+    # Private pipe to the launcher only. Docker logging is disabled, and the
+    # launcher strips this authentication before emitting any user-visible result.
+    print(json.dumps({"result": result, "model_auth": updated_auth}))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("issue", "run"):
+    for name in ("issue", "run", "probe"):
         command = commands.add_parser(name)
         command.add_argument("--manifest", required=True)
-        command.add_argument("--tier", choices=tuple(PROFILES), default="inventory")
+        if name != "probe":
+            command.add_argument("--tier", choices=tuple(PROFILES), default="inventory")
         if name == "issue":
-            command.add_argument("--model-key-fd", type=int, required=True)
             command.add_argument("--handoff-fd", type=int, required=True)
-        else:
+        elif name == "run":
+            command.add_argument("--model-auth", required=True)
             command.add_argument("--task", required=True)
             command.add_argument("--archive", required=True)
+        else:
+            command.add_argument("--probe-config", required=True)
     commands.add_parser("entry")
     args = parser.parse_args()
     try:
         if args.command == "entry":
             entry()
         else:
-            {"issue": issue, "run": run}[args.command](args)
+            return {"issue": issue, "run": run, "probe": probe}[args.command](args) or 0
         return 0
     except Rejected as error:
         print(str(error), file=sys.stderr)

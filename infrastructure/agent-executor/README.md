@@ -6,13 +6,17 @@ AWS or a model. The interactive Codex app on Yu's current account remains outsid
 this boundary; selecting a narrower AWS profile cannot isolate that app from the
 human administrator cache.
 
+The [local Mac setup](setup-local.md) prepares a dedicated standard account and
+separate Colima profile, with a local credential pipe and no host SSH server.
+It records the remaining OS authentication, build and isolation prerequisites.
+
 ```mermaid
 flowchart LR
-  H[Human operator: SSO cache] -->|issue: exact role + RoleId verified| P[Private pipe over SSH]
+  H[Human operator: SSO cache] -->|issue: exact role + RoleId verified| P[Private local pipe]
   P --> L[Separate OS account: trusted launcher]
   L --> C[Disposable container: whole Codex + one temporary session]
   C --> E[Enforced egress proxy]
-  E --> A[Allowed AWS endpoints + OpenAI API]
+  E --> A[Allowed AWS endpoints + Codex subscription]
 ```
 
 The launcher accepts only `inventory` (default, profile
@@ -23,9 +27,9 @@ it is not available in this bundle.
 
 ## Required before activation
 
-1. Provision the reviewed [access foundation](../agent-access/README.md), finish
-   human SSO login, and obtain each generated role's exact ARN and immutable
-   `RoleId`. Copy `manifest.example.json` into private operator storage and fill
+1. The reviewed [access foundation](../agent-access/README.md) is deployed,
+   human SSO login succeeded, and each generated role's exact ARN and immutable
+   `RoleId` was verified. Copy `manifest.example.json` into private operator storage and fill
    these values. Place an independently controlled copy on the runtime host.
    Both manifests must be owned by their launcher user, not writable by others,
    and held in directories the container cannot access. The example deliberately
@@ -35,11 +39,14 @@ it is not available in this bundle.
    runtime. The launcher refuses root, this Mac's human UID 501, and membership
    in the macOS admin group. Those checks alone do not prove separation: the
    operator must deny access to human homes, AWS/SSO/Codex caches, other users'
-   Docker engines, and shared credential services. A remote Linux ARM64 host
-   provides a simpler separation from this Mac. Preserve current apps and engines.
-3. Build and smoke-test the image below. Supply a separate model API key with an
-   appropriate project/budget and select an available model in `task.json`.
-   No model key is available from this repository. Never copy human Codex auth.
+   Docker engines, and shared credential services. The user selected this Mac's
+   dedicated account and VM. Preserve current apps and engines.
+3. Build and smoke-test the image below. The user selected **Codex subscription
+   access**. Complete a fresh device-code login under the dedicated runtime
+   account, then select an available model in `task.json`. Keep its authentication
+   file in private operator storage outside the task. Never copy the human's
+   existing Codex cache or use an inherited API key.
+   See [subscription authentication](subscription-auth.md) for login and refresh ownership.
 4. Prepare Docker Engine **server version 28 or newer**, a dedicated internal
    bridge `aws-agent-internal` with
    `com.docker.network.bridge.gateway_mode_ipv4=isolated` and IPv6 disabled, and
@@ -68,7 +75,8 @@ reviewed image, with read-only root filesystem and no privileged mode. Its only
 non-tmpfs mount must bind the reviewed config file read-only to that exact path.
 Optional tmpfs storage is limited to `/run`, `/tmp`, `/var/log/squid`,
 `/var/spool/squid`, and `/var/cache/squid`. Adapt and test the proxy image to this
-contract; this bundle does not supply or start one.
+contract; the [pinned proxy recipe](proxy-runtime.md) supplies the reviewed image
+definition and startup procedure. It has not yet been built or started.
 The initial allowlist covers `us-east-1` service endpoints plus global IAM/S3
 and OpenAI; reads in other regions require a reviewed endpoint expansion even
 where IAM already permits them.
@@ -107,20 +115,20 @@ this launcher to the separate account. Existing collector scripts may require
 tools or Git state absent from this minimal image; direct AWS CLI reads work
 independently of that collector.
 
-Example human-operated handoff, using private paths outside the repository:
+Example handoff to a separately prepared remote runtime, using private paths
+outside the repository. For the selected local Mac use [setup-local.md](setup-local.md):
 
 ```sh
 python3 infrastructure/agent-executor/executor.py issue \
   --manifest /private/operator/agent-manifest.json --tier inventory \
-  --model-key-fd 4 --handoff-fd 3 \
-  4< /private/operator/dedicated-model-key 3>&1 1>/dev/null |
+  --handoff-fd 3 3>&1 1>/dev/null |
 ssh -a -o ForwardAgent=no isolated-runtime \
-  'python3 /opt/aws-agent/executor.py run --manifest /private/runtime/agent-manifest.json --tier inventory --task /private/runtime/task.json --archive /private/runtime/input.tar'
+  'python3 /opt/aws-agent/executor.py run --manifest /private/runtime/agent-manifest.json --tier inventory --model-auth /private/runtime/subscription/auth.json --task /private/runtime/task.json --archive /private/runtime/input.tar'
 ```
 
-Use an authenticated, verified SSH host connection. The key-input descriptor may
-instead come from a trusted secret manager. Do not put keys in shell arguments,
-environment exports, logs, Git, task prompts, or ordinary files in the repository.
+Use an authenticated, verified SSH host connection. Do not put credentials in
+shell arguments, environment exports, logs, Git, task prompts, or ordinary files
+in the repository. The AWS handoff contains no model authentication.
 The issuer must run outside any agent process that can read the human cache.
 
 `issue` exports the fixed named profile and checks account, exact assumed role,
@@ -133,9 +141,15 @@ container. AWS keys are not revoked by container removal; they expire normally.
 The container uses a non-root UID, read-only root filesystem, dropped
 capabilities, resource limits, no-new-privileges, tmpfs task storage, and no host
 mounts. Its Codex process uses fresh state, ignores user config and exec rules,
-and uses `CODEX_API_KEY` for non-interactive authentication. The outer container
+and forces ChatGPT authentication using its fresh runtime subscription login.
+The outer container
 is the enforcement boundary; Codex's inner `danger-full-access` applies there.
-The AWS session and model key are intentionally readable by that task process.
+The AWS session and subscription tokens are intentionally readable by that task
+process. Subscription tokens can refresh and outlive the AWS session; their
+scope and lifetime are separate from the one-hour AWS boundary. The launcher
+persists updated subscription auth privately after a validated successful task.
+A failed or interrupted handoff requires a fresh login, avoiding reuse of a
+potentially stale refresh token.
 Docker tmpfs can use swap; configure the host's storage protections accordingly.
 
 Only a bounded final JSON result is returned; command diagnostics and Docker
@@ -144,9 +158,31 @@ protection against encoded secrets or intentional exfiltration**. Treat results
 as untrusted data. The permitted model endpoint necessarily receives task data;
 endpoint allowlisting cannot distinguish a legitimate model request from data
 sent there by a compromised task. IAM limits, isolated credentials, reviewed
-inputs, and the model project's controls remain necessary.
+inputs, and the subscription account's controls remain necessary.
 
 ## Offline checks and references
+
+Before credential handoff, the separate runtime user can run:
+
+```sh
+python3 executor.py probe --manifest /private/runtime/agent-manifest.json \
+  --probe-config /private/runtime/network-probe.json
+```
+
+The private probe config contains `proxy_ipv4` and five `{name, ip, port}` targets
+named `host`, `private`, `metadata`, `public` and `ipv6`; use inspected actual
+host/VM addresses and reviewed test destinations. The
+[probe source](probe_network.py) documents the exact constraints. The launcher
+checks the proxy, uses the same image/network/container controls as a task, and
+passes this config through stdin without a host mount or credential envelope.
+The image must be rebuilt with the probe included before this command can run.
+
+The 28 runtime checks cover allowed HTTPS endpoints, explicit proxy denials,
+direct-path kernel/route evidence and unchanged network configuration. Timeouts
+or refused connections are inconclusive. Save the report privately. A successful
+network-check exit **does not mean activation is ready**: DNS escape observation,
+external expiry/cleanup and actual AWS identity/permission checks remain separate
+requirements. `run` does not automatically execute or attest these probes.
 
 ```sh
 python3 -B -m unittest discover -s infrastructure/agent-executor -p 'test_*.py' -v
@@ -160,6 +196,7 @@ activation checks, not claims made by these unit tests.
 - [AWS export-credentials](https://docs.aws.amazon.com/cli/latest/reference/configure/export-credentials.html)
   and [STS GetCallerIdentity](https://docs.aws.amazon.com/STS/latest/APIReference/API_GetCallerIdentity.html).
 - [Codex environment variables](https://learn.chatgpt.com/docs/config-file/environment-variables)
+  and [subscription authentication](https://learn.chatgpt.com/docs/auth)
   and [0.154.0 release](https://github.com/openai/codex/releases/tag/rust-v0.154.0).
   Local 0.154.0 `exec --help` confirms the three config/rules/ephemeral flags.
 - [Docker run controls](https://docs.docker.com/reference/cli/docker/container/run/),

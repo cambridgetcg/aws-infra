@@ -9,6 +9,15 @@ docs/OWNERSHIP.md before changing an account or an existing stack.
   project's documentation or shell history. Prefer temporary login/SSO sessions.
 - Before account-scoped operations, verify STS identity against the selected
   account record. A profile name or old document does not establish identity.
+- Routine Cambridge discovery uses `cambridge-agent-inventory`; an explicitly
+  requested IAM review uses `cambridge-iam-audit`. Use `make inventory-plan`
+  for an offline plan and `make inventory-scan` for the eight supported reads.
+  If either scoped profile is unavailable, report the missing access; do not
+  fall back to `default` or administrator access. A privileged identity requires
+  an authorized, named change. See docs/ACCESS_REBUILD.md for activation status.
+- These host-profile defaults are workflow guidance, not isolation from the
+  human cache. Autonomous execution uses the separately verified runtime in
+  infrastructure/agent-executor; do not label this host shell isolated.
 - The bundled collector is read-only. Keep its command list explicit and its
   output limited to selected metadata. Do not add apply/delete/deploy behavior
   to the collector.

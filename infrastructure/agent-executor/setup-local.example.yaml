@@ -1,0 +1,31 @@
+# REVIEW ONLY: for /Users/aws-agent/.colima/aws-agent/colima.yaml after account setup.
+# Colima 0.9.1: an empty mounts list would expose the entire runtime user's home.
+cpu: 2
+memory: 4
+disk: 20
+rootDisk: 20
+arch: aarch64
+runtime: docker
+vmType: vz
+autoActivate: false
+forwardAgent: false
+sshConfig: false
+rosetta: false
+binfmt: false
+nestedVirtualization: false
+mountType: virtiofs
+mountInotify: false
+kubernetes:
+  enabled: false
+network:
+  address: false
+  mode: shared
+  hostAddresses: false
+  dns: []
+  dnsHosts: {}
+mounts:
+  - location: /Users/aws-agent/agent-runtime/proxy
+    mountPoint: /Users/aws-agent/agent-runtime/proxy
+    writable: false
+provision: []
+env: {}

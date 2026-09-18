@@ -1,6 +1,6 @@
-# HUMAN/LAUNCHER PROFILE REFERENCE. Configured locally; SSO sign-in pending.
+# HUMAN/LAUNCHER PROFILE REFERENCE. Configured and authenticated locally.
 # Portal URL supplied by the account owner on 18 September 2026.
-# The two AWSInfra permission sets must first be provisioned and assigned.
+# Both AWSInfra permission sets were provisioned and verified on 18 September 2026.
 # Keep this complete SSO configuration and its refresh cache OUT of agent runtimes.
 # Merge named entries after review; do not overwrite the current default profile.
 

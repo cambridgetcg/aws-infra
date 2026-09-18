@@ -16,12 +16,14 @@ on 18 September. See
 [agent access](docs/AGENT_ACCESS.md) for credential handling and the proposed
 separation between discovery, deployment and administration.
 
-The [18 September role map](docs/IAM_ROLE_MAP_2026-09-18.md) covers all 133
-remaining roles. The [access rebuild](docs/ACCESS_REBUILD.md) preserves current
-applications and prepares read-only agent access with temporary project access.
-Its reviewed [foundation template](infrastructure/agent-access/README.md) is not
-deployed; named SSO profiles are configured, while sign-in verification and
-executor isolation remain to be completed.
+The [18 September role map](docs/IAM_ROLE_MAP_2026-09-18.md) covers the 133 roles
+preserved during the rebuild. The deployed
+[access foundation](infrastructure/agent-access/README.md) adds two scoped SSO
+roles, bringing the total to 135. Both named profiles passed live identity and
+permission checks with one-hour sessions. The [agent flow](docs/ACCESS_REBUILD.md)
+defaults to read-only discovery; named-project changes need their own scoped
+identity. The dedicated local executor is being prepared and is not active yet.
+It will use your Codex subscription through a fresh runtime login.
 
 ## Start here
 
@@ -31,20 +33,23 @@ Offline plans and tests need no AWS credentials; the tests also use Git.
 ```sh
 make check
 python3 scripts/aws_inventory.py accounts
-python3 scripts/aws_inventory.py plan --account cambridge-tcg --profile default
+make inventory-plan
 ```
 
 The plan prints the selected account, regions and read commands without
-contacting AWS. Once the AWS session is ready:
+contacting AWS. The default inventory workflow selects only the eight reads in
+the deployed inventory tier. After completing SSO authorization:
 
 ```sh
-aws login --profile default
-python3 scripts/aws_inventory.py identity --profile default
-python3 scripts/aws_inventory.py scan --account cambridge-tcg --profile default
+aws sso login --profile cambridge-agent-inventory
+python3 scripts/aws_inventory.py identity --profile cambridge-agent-inventory
+make inventory-scan
 ```
 
-For an already configured IAM Identity Center profile, use `aws sso login
---profile YOUR_PROFILE` instead. See [access and authentication](docs/ACCESS.md).
+No administrator fallback is used if scoped access is unavailable. These host
+commands do not isolate the process from other local credentials; autonomous
+tasks need the [isolated executor](infrastructure/agent-executor/README.md).
+See [access and authentication](docs/ACCESS.md) for the separate human login.
 
 Every scan first checks the actual STS account against the chosen registry
 entry. A wrong account stops before resource collection. An inaccessible
@@ -83,7 +88,7 @@ flowchart TB
 | [docs/OWNERSHIP.md](docs/OWNERSHIP.md) | Human-readable map of what already exists and who changes it. |
 | [docs/ACCESS.md](docs/ACCESS.md) | Temporary authentication and collector permissions. |
 | [docs/AGENT_ACCESS.md](docs/AGENT_ACCESS.md) | Current credential boundary and proposed agent access tiers. |
-| [docs/IAM_ROLE_MAP_2026-09-18.md](docs/IAM_ROLE_MAP_2026-09-18.md) | All 133 remaining roles, owners, configured consumers and gaps. |
+| [docs/IAM_ROLE_MAP_2026-09-18.md](docs/IAM_ROLE_MAP_2026-09-18.md) | Preserved 133-role baseline at 14:26 UTC, owners, consumers and gaps; two scoped roles were added later. |
 | [docs/ACCESS_REBUILD.md](docs/ACCESS_REBUILD.md) | Confirmed migration scope, profiles and isolated agent flow. |
 | [docs/IAM_REVIEW_2026-09-17.md](docs/IAM_REVIEW_2026-09-17.md) | Verified IAM findings, priorities and review limits. |
 | [docs/CAPTIONEER_CLEANUP.md](docs/CAPTIONEER_CLEANUP.md) | Completed five-role retirement, dependency checks and verification. |
@@ -91,7 +96,7 @@ flowchart TB
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Inventory, change, verification and recovery workflow. |
 | [docs/STATUS.md](docs/STATUS.md) | Dated observations and outstanding setup. |
 | [infrastructure/](infrastructure/README.md) | Boundary for shared stacks adopted into this repository. |
-| [infrastructure/agent-access/](infrastructure/agent-access/README.md) | Validated, undeployed Identity Center foundation and profile example. |
+| [infrastructure/agent-access/](infrastructure/agent-access/README.md) | Deployed Identity Center foundation, verification record and profile example. |
 | [infrastructure/agent-executor/](infrastructure/agent-executor/README.md) | Prepared whole-agent container, temporary credential handoff and offline tests; inactive. |
 | `scripts/aws_inventory.py` | Account verification, offline plans and metadata collection. |
 | `tests/` | Offline tests for account selection, output and failure handling. |
@@ -109,13 +114,12 @@ the CLI before local filtering; see the [permission analysis](policies/README.md
 Output filtering is not an IAM restriction. Collection failures and unscanned
 scope are part of the report.
 
-Cambridge TCG's identity and selected `us-east-1` metadata plus global S3 names
-were verified after login renewal on 17 September 2026. RewardsPro remains
-unverified. Source/state ownership and other regions are not established by that
-scan. The initial expired-session observation is superseded by [current status](docs/STATUS.md).
-RewardsPro has conflicting historical region references, so its defaults
-include `eu-west-2`, `eu-north-1` and `us-east-1` pending verification of the
-separate v2 and legacy stacks and their actual account ownership.
+Cambridge TCG's identity and all eight scoped inventory collections passed on
+18 September. RewardsPro legacy IAM/Lambda references were separately observed
+in Cambridge TCG `eu-north-1`. The historical RewardsPro account and v2 deployment
+remain unverified; their candidate regions include `eu-west-2`, `eu-north-1` and
+`us-east-1`. Full workload/state ownership remains separate from these selected
+observations. See [current status](docs/STATUS.md).
 
 CI runs tests and repository checks without AWS credentials. Creating or
 pushing this repository provisions no AWS resources and starts no scheduled job.

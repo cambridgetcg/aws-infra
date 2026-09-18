@@ -1,6 +1,7 @@
 """Offline boundary tests: no AWS, Docker, model, or credential-cache access."""
 
 import argparse
+import base64
 import copy
 from datetime import datetime, timezone
 import importlib.util
@@ -38,6 +39,14 @@ def identity():
     return {"Account": executor.ACCOUNT,
             "Arn": "arn:aws:sts::034362054546:assumed-role/" + ROLE["role_arn"].rsplit("/", 1)[1] + "/test",
             "UserId": ROLE["role_id"] + ":test"}
+
+
+def model_auth(suffix="original", account="offline-workspace", subject="offline-user"):
+    payload = base64.urlsafe_b64encode(json.dumps({"sub": subject}).encode()).decode().rstrip("=")
+    return {"auth_mode": "chatgpt", "OPENAI_API_KEY": None,
+            "tokens": {"id_token": "eyJhbGciOiJub25lIn0." + payload + "." + suffix,
+                       "access_token": "offline-access-" + suffix, "refresh_token": "offline-refresh-" + suffix,
+                       "account_id": account}, "last_refresh": "2026-09-18T00:00:00Z"}
 
 
 def archive(*names, link=False):
@@ -92,7 +101,7 @@ class IdentityBoundaryTests(unittest.TestCase):
         self.assertFalse(set(env) & {"AWS_PROFILE", "AWS_ACCESS_KEY_ID", "DOCKER_HOST", "CODEX_HOME"})
 
     def test_wrong_role_never_reaches_handoff(self):
-        args = argparse.Namespace(manifest="unused", tier="inventory", handoff_fd=4, model_key_fd=5)
+        args = argparse.Namespace(manifest="unused", tier="inventory", handoff_fd=4)
         with patch.object(executor, "operator_json", return_value=MANIFEST), \
              patch.object(executor.os, "fstat", return_value=argparse.Namespace(st_mode=0o010600)), \
              patch.object(executor, "capture_json", return_value=credentials()) as call, \
@@ -136,16 +145,44 @@ class FileBoundaryTests(unittest.TestCase):
             with self.assertRaises(executor.Rejected):
                 executor.unpack(raw)
 
-    def test_json_and_model_key_limits(self):
+    def test_json_limits(self):
         for raw in (b"[]", b"not JSON", b" " * 100):
             with self.assertRaises(executor.Rejected):
                 executor.read_json(io.BytesIO(raw), 32)
-        for key in (None, "short", "fake-key\nother", "x" * 4097):
-            with self.assertRaises(executor.Rejected):
-                executor.validate_model_key(key)
 
 
 class ProcessBoundaryTests(unittest.TestCase):
+    def test_credential_free_probe_preserves_boundary_and_reports_inconclusive(self):
+        args = argparse.Namespace(manifest="unused", probe_config="unused")
+        config = {"proxy_ipv4": "172.30.50.2", "targets": []}
+        manifest = dict(MANIFEST, proxy_identity={"container_id": PROXY_ID, "config_sha256": "d" * 64})
+        for status, code in (("passed", 0), ("failed", 1), ("inconclusive", 1)):
+            report = {"schema_version": 1, "activation_ready": False, "network_checks_status": status}
+            with self.subTest(status=status), \
+                 patch.object(executor, "require_runtime_user"), \
+                 patch.object(executor, "operator_json", side_effect=[manifest, config]), \
+                 patch.object(executor, "inspect_network", return_value=(NETWORK_ID, "172.30.50.2")), \
+                 patch.object(executor, "bounded_command", return_value=json.dumps(report).encode()) as call, \
+                 patch.object(executor.subprocess, "run") as cleanup, \
+                 patch.object(executor.sys, "stdout", new_callable=io.StringIO) as output, \
+                 patch.dict(os.environ, {"AWS_ACCESS_KEY_ID": "fake-admin", "OPENAI_API_KEY": "fake-model"}):
+                self.assertEqual(executor.probe(args), code)
+                command, env = call.call_args.args
+                self.assertEqual(command[-5:], ["-I", "-B", "/opt/probe_network.py", "--config", "-"])
+                self.assertIn("--read-only", command)
+                self.assertEqual(command[command.index("--network") + 1], NETWORK_ID)
+                self.assertNotIn("AWS_ACCESS_KEY_ID", env)
+                self.assertNotIn("OPENAI_API_KEY", env)
+                self.assertEqual(json.loads(call.call_args.kwargs["payload"]), config)
+                self.assertFalse(json.loads(output.getvalue())["activation_ready"])
+                self.assertEqual(json.loads(output.getvalue())["launcher_evidence"]["proxy_config_sha256"], "d" * 64)
+                cleanup.assert_called_once()
+
+    def test_bounded_command_can_retain_explicit_probe_failure_report(self):
+        output = executor.bounded_command([sys.executable, "-I", "-c", "import sys; print('inconclusive'); sys.exit(2)"],
+                                           executor.base_environment(), timeout=5, limit=1024, accepted_codes=(0, 1, 2))
+        self.assertEqual(output, b"inconclusive\n")
+
     def test_fixed_container_boundary(self):
         command = executor.docker_command(MANIFEST, "aws-agent-test", NETWORK_ID, "172.30.50.2")
         for option in ("--privileged", "--volume", "--mount", "-v", "--device", "--env-file"):
@@ -185,9 +222,12 @@ class ProcessBoundaryTests(unittest.TestCase):
             self.assertNotIn("private fixture", str(caught.exception))
 
     def test_literal_credentials_redacted(self):
-        envelope = {"credentials": credentials(), "model_api_key": "fake-model-key"}
-        output = executor.redact(" ".join([envelope["model_api_key"], *list(credentials().values())[:3]]), envelope)
-        self.assertEqual(output.count("[REDACTED]"), 4)
+        envelope = {"credentials": credentials(), "model_auth": model_auth()}
+        updated = model_auth("updated")
+        values = [*list(credentials().values())[:3], *list(model_auth()["tokens"].values())[:3],
+                  *list(updated["tokens"].values())[:3]]
+        output = executor.redact(" ".join(values), envelope, updated)
+        self.assertEqual(output.count("[REDACTED]"), 9)
 
     def test_result_projects_only_known_fields_and_checks_real_reported_id(self):
         value = {"task_id": "test", "account_id": executor.ACCOUNT, "principal_arn": identity()["Arn"],
@@ -200,6 +240,174 @@ class ProcessBoundaryTests(unittest.TestCase):
                         {"expires_at": "wrong-expiry"}, {"principal_arn": "wrong-role-arn"}):
             with self.subTest(changes=changes), self.assertRaises(executor.Rejected):
                 executor.project_result(dict(value, **changes), {"task_id": "test"}, credentials(), ROLE)
+
+
+class SubscriptionBoundaryTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name).resolve()
+        self.root.chmod(0o700)
+        self.auth = self.root / "auth.json"
+        self.auth.write_text(json.dumps(model_auth()))
+        self.auth.chmod(0o600)
+
+    def test_known_chatgpt_only_cache_and_no_api_fallback(self):
+        self.assertEqual(executor.validate_model_auth(model_auth()), ("offline-workspace", "offline-user"))
+        for change in ({"auth_mode": "apikey"}, {"OPENAI_API_KEY": "offline-api-key"}, {"tokens": None},
+                       {"agent_identity": {}}, {"unexpected": None}, {"last_refresh": "invalid"}):
+            with self.subTest(change=change), self.assertRaises(executor.Rejected):
+                executor.validate_model_auth(dict(model_auth(), **change))
+        for field, value in (("access_token", "x" * 16385), ("refresh_token", "bad\ntoken"),
+                             ("account_id", None), ("id_token", "not-a-jwt")):
+            value_auth = model_auth()
+            value_auth["tokens"][field] = value
+            with self.subTest(field=field), self.assertRaises(executor.Rejected):
+                executor.validate_model_auth(value_auth)
+
+    def test_auth_file_private_atomic_owned_and_no_links(self):
+        original_inode = self.auth.stat().st_ino
+        with executor.model_auth_file(self.auth) as (auth, save):
+            self.assertEqual(auth, model_auth())
+            save(model_auth("updated"))
+        self.assertNotEqual(self.auth.stat().st_ino, original_inode)
+        self.assertEqual(self.auth.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(json.loads(self.auth.read_text()), model_auth("updated"))
+        self.auth.chmod(0o644)
+        with self.assertRaises(executor.Rejected), executor.model_auth_file(self.auth):
+            pass
+        self.auth.chmod(0o600)
+        link = self.root / "link"
+        link.symlink_to(self.auth)
+        with self.assertRaises(OSError), executor.model_auth_file(link):
+            pass
+        link.unlink()
+        os.link(self.auth, link)
+        with self.assertRaises(executor.Rejected), executor.model_auth_file(self.auth):
+            pass
+
+    def test_private_parent_lock_and_changed_destination(self):
+        self.root.chmod(0o755)
+        with self.assertRaises(executor.Rejected), executor.model_auth_file(self.auth):
+            pass
+        self.root.chmod(0o700)
+        outside = self.root / "unrelated"
+        outside.write_text("preserve")
+        with executor.model_auth_file(self.auth) as (_, save):
+            with self.assertRaises(executor.Rejected), executor.model_auth_file(self.auth):
+                pass
+            self.auth.unlink()
+            self.auth.symlink_to(outside)
+            with self.assertRaises(executor.Rejected):
+                save(model_auth("updated"))
+        self.assertEqual(outside.read_text(), "preserve")
+
+    def run_fixture(self, returned=None, failure=None, handoff=None):
+        task = {"task_id": "test", "model": "offline-model", "prompt": "offline task"}
+        archive_path = self.root / "inputs.tar"
+        archive_path.write_bytes(archive("readme.txt"))
+        args = argparse.Namespace(manifest="unused", task="unused", archive=str(archive_path),
+                                  model_auth=str(self.auth), tier="inventory")
+        handoff = {"tier": "inventory", "credentials": credentials()} if handoff is None else handoff
+        updated = model_auth("updated") if returned is None else returned
+        result = {"task_id": "test", "account_id": executor.ACCOUNT, "principal_arn": identity()["Arn"],
+                  "principal_id": identity()["UserId"], "expires_at": credentials()["Expiration"],
+                  "result": "summary " + model_auth()["tokens"]["refresh_token"] + " " + updated["tokens"]["access_token"]}
+        with patch.object(executor, "require_runtime_user"), \
+             patch.object(executor, "operator_json", side_effect=[MANIFEST, task]), \
+             patch.object(executor, "inspect_network", return_value=(NETWORK_ID, "172.30.50.2")), \
+             patch.object(executor.time, "time", return_value=NOW), \
+             patch.object(executor.sys, "stdin", argparse.Namespace(buffer=io.BytesIO(json.dumps(handoff).encode()))), \
+             patch.object(executor.sys, "stdout", new_callable=io.StringIO) as output, \
+             patch.object(executor, "bounded_command", side_effect=failure,
+                          return_value=json.dumps({"result": result, "model_auth": updated}).encode()) as call, \
+             patch.object(executor.subprocess, "run"), \
+             patch.dict(os.environ, {"OPENAI_API_KEY": "offline-api", "CODEX_API_KEY": "offline-codex-api"}):
+            if failure or updated["tokens"]["account_id"] != "offline-workspace" or set(handoff) != {"tier", "credentials"}:
+                with self.assertRaises(executor.Rejected):
+                    executor.run(args)
+            else:
+                executor.run(args)
+            return output.getvalue(), call
+
+    def test_success_persists_rotated_auth_and_emits_only_redacted_result(self):
+        output, call = self.run_fixture()
+        self.assertEqual(json.loads(self.auth.read_text()), model_auth("updated"))
+        self.assertNotIn("model_auth", json.loads(output))
+        for auth in (model_auth(), model_auth("updated")):
+            for key in ("access_token", "refresh_token", "id_token"):
+                self.assertNotIn(auth["tokens"][key], output)
+        command, env = call.call_args.args
+        self.assertNotIn("OPENAI_API_KEY", env)
+        self.assertNotIn("CODEX_API_KEY", env)
+        self.assertNotIn("--mount", command)
+        sent = json.loads(call.call_args.kwargs["payload"])
+        self.assertEqual(sent["model_auth"], model_auth())
+        self.assertNotIn("model_api_key", sent)
+
+    def test_failed_or_changed_account_requires_fresh_login_without_auth_output(self):
+        for options in ({"failure": executor.Rejected("offline failed")},
+                        {"returned": model_auth("updated", account="other-workspace")}):
+            self.auth.write_text(json.dumps(model_auth()))
+            output, _ = self.run_fixture(**options)
+            self.assertEqual(output, "")
+            self.assertIsNone(json.loads(self.auth.read_text())["tokens"])
+            with self.assertRaises(executor.Rejected), executor.model_auth_file(self.auth):
+                pass
+
+    def test_legacy_api_key_handoff_is_rejected_before_docker(self):
+        output, call = self.run_fixture(handoff={"tier": "inventory", "credentials": credentials(),
+                                                "model_api_key": "offline-api-key"})
+        self.assertEqual(output, "")
+        call.assert_not_called()
+        self.assertEqual(json.loads(self.auth.read_text()), model_auth())
+
+    def test_issue_transports_only_verified_aws_credentials(self):
+        receive, send = os.pipe()
+        try:
+            args = argparse.Namespace(manifest="unused", tier="inventory", handoff_fd=send)
+            with patch.object(executor, "operator_json", return_value=MANIFEST), \
+                 patch.object(executor, "capture_json", return_value=credentials()), \
+                 patch.object(executor.time, "time", return_value=NOW), \
+                 patch.object(executor, "verified_identity"):
+                executor.issue(args)
+            self.assertEqual(json.loads(os.read(receive, 65536)), {"tier": "inventory", "credentials": credentials()})
+        finally:
+            os.close(receive)
+            os.close(send)
+
+    def test_container_forces_chatgpt_file_auth_without_api_environment(self):
+        session, home = self.root / "session", self.root / "home"
+        session.mkdir()
+        home.mkdir()
+        envelope = {"tier": "inventory", "role": ROLE, "credentials": credentials(), "model_auth": model_auth(),
+                    "task": {"task_id": "test", "model": "offline-model", "prompt": "offline prompt"},
+                    "archive": base64.b64encode(archive("readme.txt")).decode()}
+        def fake_process(*args, **kwargs):
+            (session / "result.txt").write_text("offline result")
+            return argparse.Namespace(returncode=0, communicate=lambda *a, **kw: (None, None))
+        original_umask = os.umask(0o077)
+        try:
+            with patch.object(executor.os, "getuid", return_value=10001), \
+                 patch.object(executor.time, "time", return_value=NOW), \
+                 patch.object(executor, "verified_identity", return_value=identity()), \
+                 patch.object(executor, "unpack"), \
+                 patch.object(executor, "Path", side_effect=lambda p: {"/run/session": session, "/home/agent/.codex": home / ".codex"}[p]), \
+                 patch.object(executor, "operator_json", return_value=model_auth("updated")), \
+                 patch.object(executor.sys, "stdin", argparse.Namespace(buffer=io.BytesIO(json.dumps(envelope).encode()))), \
+                 patch.object(executor.sys, "stdout", new_callable=io.StringIO) as private_output, \
+                 patch.object(executor.subprocess, "Popen", side_effect=fake_process) as process:
+                executor.entry()
+            command = process.call_args.args[0]
+            env = process.call_args.kwargs["env"]
+            self.assertIn('forced_login_method="chatgpt"', command)
+            self.assertIn('cli_auth_credentials_store="file"', command)
+            self.assertFalse({"CODEX_API_KEY", "OPENAI_API_KEY"}.intersection(env))
+            self.assertEqual(env["CODEX_HOME"], str(home / ".codex"))
+            self.assertEqual(json.loads(private_output.getvalue())["model_auth"], model_auth("updated"))
+            self.assertEqual((home / ".codex/auth.json").stat().st_mode & 0o777, 0o600)
+        finally:
+            os.umask(original_umask)
 
 
 class NetworkBoundaryTests(unittest.TestCase):

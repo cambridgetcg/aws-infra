@@ -13,6 +13,7 @@ RUN mkdir /opt/codex && tar -xzf /tmp/codex.tar.gz -C /opt/codex && \
     mkdir -p /work /run/session && chown executor:executor /work /run/session && \
     aws --version && codex --version
 COPY executor.py /opt/executor.py
+COPY probe_network.py /opt/probe_network.py
 ENV HOME=/home/agent PYTHONDONTWRITEBYTECODE=1
 USER 10001:10001
 WORKDIR /work

@@ -1,5 +1,8 @@
 # Local AWS authentication and application configuration
 .aws/
+.codex/
+auth.json
+codex-login.log
 .env
 .env.*
 !.env.example

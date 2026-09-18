@@ -65,13 +65,13 @@ def check():
             errors.append(f"Invalid IAM policy document: {path.name}")
 
     # Check the actual Git policy rather than assuming a comment protects output.
-    for local in ("inventory/local/example.json", ".env", "terraform.tfstate", "tfplan", "secret.tfvars", ".aws/credentials"):
+    for local in ("inventory/local/example.json", ".env", "terraform.tfstate", "tfplan", "secret.tfvars", ".aws/credentials", ".codex/auth.json", "auth.json", "codex-login.log"):
         result = subprocess.run(["git", "check-ignore", "--quiet", "--no-index", "--", local], cwd=ROOT)
         if result.returncode != 0:
             errors.append(f"Sensitive local artifact is not ignored: {local}")
     tracked = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT, check=True, capture_output=True).stdout.decode().split("\0")
     for name in filter(None, tracked):
-        if name.startswith(("inventory/local/", ".aws/")) or Path(name).name.startswith(".env") and name != ".env.example":
+        if name.startswith(("inventory/local/", ".aws/", ".codex/")) or Path(name).name in ("auth.json", "codex-login.log") or Path(name).name.startswith(".env") and name != ".env.example":
             errors.append(f"Local-only file tracked by Git: {name}")
         if re.search(r"(?:\.tfstate(?:\..*)?|\.tfplan|\.tfvars(?:\.json)?|\.pem|\.key|\.p12)$", name) or Path(name).name == "tfplan":
             errors.append(f"State/plan/key file tracked by Git: {name}")

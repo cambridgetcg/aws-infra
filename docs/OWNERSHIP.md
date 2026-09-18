@@ -6,7 +6,7 @@ TCG metadata and IAM roles; see the [IAM review](IAM_REVIEW_2026-09-17.md).
 That observation does not establish deployment/state ownership for every stack.
 
 The [18 September IAM role map](IAM_ROLE_MAP_2026-09-18.md) extends this source
-map with all 133 remaining roles, 50 direct CloudFormation ownership matches and
+map with the preserved 133-role baseline, 50 direct CloudFormation ownership matches and
 selected configured consumers. The registry now includes ten source records,
 including business ecosystem, SaaS marketing and Cardforum security. The role
 map also retains unresolved owners; the registry is not the complete estate.
@@ -16,6 +16,13 @@ map also retains unresolved owners; the registry is not the complete estate.
 `aws-infra` owns the shared account/project registry, local metadata collector,
 cross-project map and operating runbooks. An AWS resource becomes managed here
 only through a concrete stack addition or explicit state/ownership transfer.
+
+Since 18 September at 17:17 UTC, this repository also owns the deployed
+`aws-infra-agent-access` CloudFormation stack in Cambridge TCG / `us-east-1`:
+two Identity Center permission sets and their two explicit assignments. The
+generated SSO roles are managed through Identity Center. No existing application
+resource or Terraform state was imported. See the
+[deployment record](../infrastructure/agent-access/README.md).
 
 | Area | Existing source owner | Definitions and scope | Source region / state boundary |
 | --- | --- | --- | --- |

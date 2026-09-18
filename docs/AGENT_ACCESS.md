@@ -1,4 +1,4 @@
-# Agent access: current boundary and proposed model
+# Agent access: live tiers and runtime boundary
 
 **Reviewed 17 September 2026.** This document proposes how agents should receive
 AWS access. That review changed no roles, policies, assignments, keys or session settings.
@@ -12,9 +12,11 @@ renewed human administrator login was verified again for that cleanup.
 read-only agent access by default and grant temporary access to named projects
 for changes. The [role map](IAM_ROLE_MAP_2026-09-18.md) and
 [concrete access proposal](ACCESS_REBUILD.md) extend this review. The new
-local profiles are configured. The permission sets are in an unexecuted change
-set, and the [executor bundle](../infrastructure/agent-executor/README.md) is
-prepared but inactive. Authentication and live isolation checks remain pending.
+local profiles are authenticated. The two permission sets and assignments were
+deployed at 17:17 UTC; live one-hour credential, identity and allow/deny checks
+passed at 17:18 UTC. All 133 existing roles were preserved; two new SSO roles
+bring the total to 135. The [executor bundle](../infrastructure/agent-executor/README.md)
+remains inactive pending the dedicated Mac runtime and live isolation checks.
 
 ## What agents can reach today
 
@@ -59,17 +61,17 @@ a member-account resource can still affect access to that resource.
 [SCP scope](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html),
 [RCP scope](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_rcps.html).
 
-## Proposed access tiers
+## Access tiers
 
-Reuse the existing Identity Center with explicit account/role profiles and
-purpose-specific permissions. Existing Admin, PowerUser and ReadOnly names alone
-do not establish the narrower scopes below. Propose **60-minute agent role
-sessions** initially; that is a target, not a change to existing session durations.
+The deployed foundation uses the existing Identity Center with explicit
+account/role profiles and purpose-specific permissions. Inventory and IAM audit
+now use **60-minute sessions**, verified with real temporary credentials.
+Existing Admin, PowerUser and ReadOnly settings remain unchanged.
 
 | Tier | Intended scope |
 | --- | --- |
-| **Inventory** | Only the selected resource-enumeration actions. No IAM audit, deployment, data access or role assumption unless separately required. |
-| **IAM audit** | Dedicated reads of identity policies, roles, trust, assignments and account controls needed for a named review. Keep this separate from routine resource inventory. |
+| **Inventory — live** | Eight resource-enumeration actions. No Lambda configuration, IAM audit, deployment, data access or role assumption. |
+| **IAM audit — live** | 34 IAM identity/policy/trust metadata reads. Identity Center assignments, Organizations and CloudTrail are outside this tier. |
 | **Project deployment** | Named project/environment resources, deployment/state access, and only required role passing. Limit `iam:PassRole` to intended runtime roles and services; exclude general IAM/organization administration. |
 | **IAM administration** | Separate privileged session for a named access change. It is not the default agent profile or an implicit dependency of deployment. |
 
@@ -125,6 +127,7 @@ no-application-configuration requirement, omit the Lambda service from scans
 and remove that permission from the proposed role; also check other grants.
 [Policy limits](../policies/README.md), [Lambda response schema](https://docs.aws.amazon.com/lambda/latest/api/API_ListFunctions.html).
 
-The next implementation would define exact assignments, role policies, runtime
-isolation and verification in a named access change. This investigation and these
-documents authorize no permission changes, key deactivation or automatic migration.
+The [access rebuild](ACCESS_REBUILD.md) records the deployed assignments and
+policies. Runtime isolation, project deployment identities and migration of
+existing OpenClaw credentials remain separate work. No existing access key was
+deactivated by provisioning these two tiers.

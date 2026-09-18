@@ -1,6 +1,6 @@
 # IAM role map — 18 September 2026
 
-**All 133 remaining roles are mapped below. None is confirmed unused, and this is not a deletion manifest.** Rebuilding agent profiles is a separate migration from replacing workload, deployment, service-linked or Identity Center roles. No AWS changes were made for this map.
+**The 133-role baseline at 14:26 UTC is mapped below. None is confirmed unused, and this is not a deletion manifest.** Rebuilding agent profiles is a separate migration from replacing workload, deployment, service-linked or Identity Center roles. No AWS changes were made for this map. The later [access foundation](../infrastructure/agent-access/README.md) added two scoped SSO roles, bringing the total to 135 while preserving this baseline.
 
 The role inventory was refreshed on 18 September at **14:24–14:26 UTC**, with 140 successful checks. Configured-consumer evidence is the separate **12:49 UTC** scan of all 17 enabled regions. The role-name and principal-identity sets match the 12:52 retirement verification; individual principal IDs and assigned-person identifiers are intentionally omitted.
 
