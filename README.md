@@ -10,8 +10,9 @@ scripts. New shared infrastructure can be added here when its account, state
 and responsibilities are defined.
 
 The [17 September IAM review](docs/IAM_REVIEW_2026-09-17.md) confirms live access
-to Cambridge TCG and records critical GitHub role-trust exposure. The two exposed
-Captioneer roles are now [quarantined pending cleanup](docs/CAPTIONEER_CLEANUP.md). See
+to Cambridge TCG and records the original GitHub role-trust exposure. All five
+Captioneer IAM roles were [retired and verified absent](docs/CAPTIONEER_CLEANUP.md)
+on 18 September. See
 [agent access](docs/AGENT_ACCESS.md) for credential handling and the proposed
 separation between discovery, deployment and administration.
 
@@ -76,8 +77,8 @@ flowchart TB
 | [docs/ACCESS.md](docs/ACCESS.md) | Temporary authentication and collector permissions. |
 | [docs/AGENT_ACCESS.md](docs/AGENT_ACCESS.md) | Current credential boundary and proposed agent access tiers. |
 | [docs/IAM_REVIEW_2026-09-17.md](docs/IAM_REVIEW_2026-09-17.md) | Verified IAM findings, priorities and review limits. |
-| [docs/CAPTIONEER_CLEANUP.md](docs/CAPTIONEER_CLEANUP.md) | Applied containment, dependencies and retirement/rebuild scope. |
-| [policies/](policies/README.md) | Applied Captioneer quarantine documents and proposed access policies. |
+| [docs/CAPTIONEER_CLEANUP.md](docs/CAPTIONEER_CLEANUP.md) | Completed five-role retirement, dependency checks and verification. |
+| [policies/](policies/README.md) | Proposed inventory permissions and historical Captioneer policy documents. |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Inventory, change, verification and recovery workflow. |
 | [docs/STATUS.md](docs/STATUS.md) | Dated observations and outstanding setup. |
 | [infrastructure/](infrastructure/README.md) | Boundary for shared stacks adopted into this repository. |

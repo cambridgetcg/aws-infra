@@ -1,8 +1,9 @@
 # Proposed inventory permissions
 
-For the two **applied** Captioneer quarantine documents, see the final section
-and [containment record](../docs/CAPTIONEER_CLEANUP.md). The inventory and
-staging/main allow policies below remain proposals.
+The inventory policy below remains proposed and unattached. Captioneer's five
+IAM roles were retired on 18 September 2026; its policy documents are preserved
+as [historical evidence](historical/captioneer-2026-09/README.md), not deployment
+or role-recreation templates.
 
 [agent-inventory-read.json](agent-inventory-read.json) is a **proposed, unattached
 identity permissions policy**, reviewed against the AWS documentation on
@@ -103,43 +104,15 @@ output. They do not prove effective IAM restrictions or server-side response
 redaction. Follow [access setup](../docs/ACCESS.md) and
 [operations](../docs/OPERATIONS.md) when reviewing an actual identity and scope.
 
-## Proposed Captioneer staging trust repair
+## Historical Captioneer policies
 
-[captioneer-staging-github-trust.json](captioneer-staging-github-trust.json) is
-a proposed complete trust policy for the existing
-`captioneer-staging-github-terraform` and `captioneer-staging-github-deploy`
-roles in Cambridge TCG. It replaces globally matching repository subjects with
-the exact Captioneer staging-environment subject, `aud=sts.amazonaws.com`, and
-`ref=refs/heads/main`. It grants only web-identity assumption through the existing
-GitHub provider; it does not change either role's attached permission policies.
+The [Captioneer archive](historical/captioneer-2026-09/README.md) retains three
+unchanged policy documents and their validation history. Two quarantine documents
+were applied on 17 September 2026 before the five Captioneer roles were retired
+on 18 September. The staging/main trust repair was never deployed and is
+superseded by retirement. None is a template for recreating those roles.
 
-The [dated IAM review](../docs/IAM_REVIEW_2026-09-17.md) records live evidence,
-the archived source owner, current environment-protection gaps and the change's
-compatibility limits. Current AWS documentation supports the
-[GitHub ref condition](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_iam-condition-keys.html).
-Keep this restriction paired with a protected main-only GitHub staging environment.
-PR planning and other environments need their own reviewed access. No trust,
-role, GitHub environment or original source file has been changed.
-
-AWS Access Analyzer validated the final trust document with **zero errors and
-zero warnings**. It returned one `CONFIRM_AUDIENCE_CLAIM_TYPE` suggestion: audience
-is single-valued and must not use a set qualifier. The proposal uses plain
-`StringEquals`, with no set qualifier. Adding the explicit `ref` condition
-resolved the earlier repository/branch warning. This validation does not assume
-the role, test a real GitHub token, or prove that a workflow can deploy.
-
-## Applied Captioneer quarantine
-
-[captioneer-quarantine-permissions.json](captioneer-quarantine-permissions.json)
-and [captioneer-quarantine-trust.json](captioneer-quarantine-trust.json) were
-applied to exactly `captioneer-staging-github-terraform` and
-`captioneer-staging-github-deploy` on 17 September 2026 at approximately 21:18 UTC.
-The inline permission policy is named `AWSInfraCaptioneerQuarantine20260917`.
-It unconditionally denies all actions/resources. The trust document has a deny
-and no allow statements, blocking new assumptions without deleting the roles.
-
-Both documents passed AWS validation without findings; their live copies matched
-exactly, and all 12 sampled principal-policy decisions were explicit denies.
-The [cleanup record](../docs/CAPTIONEER_CLEANUP.md) explains session/verification
-limits, dependency checks, and the pending retirement/rebuild choice. Do not
-remove quarantine or restore the former wildcard trust as a rollback.
+The [cleanup record](../docs/CAPTIONEER_CLEANUP.md) records the authorized scope,
+deletion outcome and verification limits; the [dated IAM review](../docs/IAM_REVIEW_2026-09-17.md)
+preserves the original findings. Keeping these files grants no access and does
+not authorize restoring the archived deployment workflow or former wildcard trust.

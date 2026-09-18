@@ -1,18 +1,25 @@
 # AWS credentials and IAM review — 17 September 2026
 
-**Later update, approximately 21:18 UTC:** both globally trusted Captioneer
-roles were [quarantined](CAPTIONEER_CLEANUP.md) after the follow-up request to
-handle them. The observations below preserve the earlier read-only review;
-their wildcard trust has since been replaced and role-local denies added.
+**18 September update, 12:52:50 UTC:** all five Captioneer roles were
+[deleted and verified absent](CAPTIONEER_CLEANUP.md), following the user's
+decision to retire the project. The two globally trusted roles were first
+quarantined on 17 September at approximately 21:18 UTC. Shared identity providers,
+AWS managed-policy objects and all other role identities were preserved.
 
-**The renewed login works, but it exposes administrator access to local agents.**
-The most urgent finding is separate: two Captioneer roles trust tokens from any
-GitHub repository, and one carries `AdministratorAccess`.
+The observations and recommendations below preserve the **original 17 September
+read-only review**. Captioneer findings describe the former roles; the proposed
+trust repair was never deployed and is superseded by retirement. Other IAM and
+agent-credential findings remain outstanding.
+
+**The login verified during the review exposed administrator access to local agents.**
+The most urgent finding then was separate: two Captioneer roles trusted tokens
+from any GitHub repository, and one carried `AdministratorAccess`.
 
 This is a read-only review of Cambridge TCG account `034362054546`, with local
 observations starting at 16:52 UTC. No IAM grants, trust policies, keys, MFA,
 runtime configuration or GitHub environment settings were changed. The policy
-files in this repository are proposals, not deployed controls.
+files prepared during that review were proposals, not deployed controls. Later
+quarantine and retirement changes are recorded in the addendum above.
 
 ## Priorities
 
@@ -90,11 +97,11 @@ one recorded service use, not every consumer or the absence of other access.
 was empty for each. The local configuration contains none of these users' static
 keys; their presence in IAM does not mean this machine is using them.
 
-## GitHub federation: concrete trust repair
+## GitHub federation: historical exposure and superseded trust repair
 
 The four GitHub-trusting roles discovered were:
 
-| Role | Current `sub` condition | Observed scope |
+| Role | `sub` condition at original review | Observed scope |
 | --- | --- | --- |
 | `captioneer-staging-github-terraform` | `repo:*:*` | AdministratorAccess; no inline policy or boundary. |
 | `captioneer-staging-github-deploy` | `repo:*:*` | ECR PowerUser, ECS FullAccess, plus inline ECR/ECS, scoped PassRole and Captioneer secrets/parameters. No boundary. |
@@ -102,8 +109,8 @@ The four GitHub-trusting roles discovered were:
 | `cardforum-dev-cicd-secrets` | `repo:*/cardforum:*` | Trust reviewed; full permissions were outside the targeted role-policy review. |
 
 All four require `aud=sts.amazonaws.com`; that audience does not restrict the
-repository. Current live trust and attached policy documents establish the
-Captioneer exposure. Empty `RoleLastUsed` responses are not proof of no misuse.
+repository. The trust and attached policy documents read during the review
+established the Captioneer exposure. Empty `RoleLastUsed` responses are not proof of no misuse.
 
 The owning [Captioneer bootstrap source](https://github.com/cambridgetcg/captioneer/blob/019d3619f76dc4fce58f38d997421ff3caf5c27a/infrastructure/scripts/bootstrap-aws.sh#L160)
 creates the wildcard trust and reuses it for the administrator Terraform role.
@@ -112,18 +119,18 @@ trust. Its [deploy workflow](https://github.com/cambridgetcg/captioneer/blob/019
 and [Terraform workflow](https://github.com/cambridgetcg/captioneer/blob/019d3619f76dc4fce58f38d997421ff3caf5c27a/.github/workflows/terraform.yml)
 use the `staging` GitHub environment for the main branch path.
 
-[captioneer-staging-github-trust.json](../policies/captioneer-staging-github-trust.json)
-is the proposed complete trust document for the two broadly trusted staging
+[captioneer-staging-github-trust.json](../policies/historical/captioneer-2026-09/captioneer-staging-github-trust.json)
+was the proposed complete trust document for the two broadly trusted staging
 roles. It permits only the exact subject
 `repo:cambridgetcg/captioneer:environment:staging`, the existing provider/audience,
 and `ref=refs/heads/main`. GitHub's repository OIDC metadata confirmed that subject
 format; AWS documents support for the GitHub `ref` condition. It preserves the
 intended staging main-branch path and intentionally excludes production,
 other repositories, other refs and non-environment subjects. Actual token-based
-workflow verification remains part of a future deployment of the repair.
+workflow verification was not performed; this proposal is now historical.
 
-The current GitHub `staging` environment has **no protection rules or deployment
-branch restriction**. Pair the IAM repair with a main-only environment deployment
+The GitHub `staging` environment inspected on 17 September had **no protection
+rules or deployment branch restriction**. Pair the IAM repair with a main-only environment deployment
 policy. The proposed IAM `ref` condition and main-only environment policy block
 the existing privileged PR-plan path; if restored, PR plans need separate limited
 access. Environment subject matching alone does not check the branch, which is
@@ -138,12 +145,10 @@ live trust. Follow [AWS OIDC guidance](https://docs.aws.amazon.com/IAM/latest/Us
 and [GitHub environment guidance](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws).
 Supported claim conditions are listed in the [AWS condition-key reference](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_iam-condition-keys.html).
 
-An authorized execution should first save the current role policies locally,
-apply the exact reviewed trust document, re-read both trusts, and verify the
-intended workflow under its protected environment. A failure should lead to a
-corrected restrictive trust or disabled access, not automatic restoration of
-the globally trusted administrator role. Historical CloudTrail review is a
-separate necessary follow-up for potential prior use.
+That repair path was superseded by quarantine and then retirement. Do not apply
+the historical proposal to recreate deleted access. Historical CloudTrail review
+remains a separate follow-up for potential prior use; retirement does not establish
+the absence of earlier misuse.
 
 ## Local credentials and proposed access model
 

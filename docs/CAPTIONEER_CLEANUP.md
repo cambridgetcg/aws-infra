@@ -1,132 +1,127 @@
-# Captioneer IAM cleanup — 17–18 September 2026
+# Captioneer IAM retirement — 18 September 2026
 
-**Retirement authorized on 18 September: remove the five unused Captioneer IAM
-roles, with no replacement roles.** The browser login expired overnight; final
-dependency checks and deletion are pending renewed authentication. No roles have
-been deleted. The two globally trusted GitHub roles were last verified in
-quarantine on 17 September.
+**Complete: all five Captioneer IAM roles were deleted and verified absent at
+12:52:50 UTC on 18 September 2026.** The user explicitly chose retirement with
+no replacement roles. Renewed login verified Cambridge TCG account
+`034362054546` and principal `arn:aws:iam::034362054546:user/YuCheung` before
+the change.
 
-The earlier containment and dependency evidence is preserved below. The scope
-is Captioneer's five IAM roles and their attachments/inline policies; it does
-not include shared identity providers, other projects' roles, or application
-storage, databases and other workload resources.
+This retired Captioneer's IAM access. Application storage, databases, other
+workload resources and archived Terraform state were outside the change.
 
-## Current state
+## What was removed
 
-The verified target is Cambridge TCG account `034362054546`. Exactly five
-Captioneer-named roles were found:
+| Deleted role | Former purpose | Managed attachments removed | Inline policies removed |
+| --- | --- | --- | --- |
+| `captioneer-staging-github-terraform` | GitHub infrastructure deployment | `AdministratorAccess` | Quarantine deny |
+| `captioneer-staging-github-deploy` | GitHub application deployment | `AmazonEC2ContainerRegistryPowerUser`, `AmazonECS_FullAccess` | Deployment policy and quarantine deny |
+| `captioneer-staging-github-actions-role` | Separate GitHub role defined in Terraform | None | ECR and ECS deployment policies |
+| `captioneer-staging-ecs-execution-role` | ECS image pulls, logging and secret injection | `AmazonECSTaskExecutionRolePolicy` | Execution secrets policy |
+| `captioneer-staging-ecs-task-role` | Application S3 and logging access | None | Task logs and S3 policies |
 
-| Role | Purpose | Current handling |
-| --- | --- | --- |
-| `captioneer-staging-github-terraform` | GitHub infrastructure deployment; AdministratorAccess attached | **Quarantined** at approximately 21:18 UTC. |
-| `captioneer-staging-github-deploy` | GitHub application deployment; broad ECR/ECS and application-secret permissions | **Quarantined** at approximately 21:18 UTC. |
-| `captioneer-staging-github-actions-role` | Separate GitHub role defined in Terraform; trusts the named Captioneer repository | Unchanged; candidate for retirement or replacement. |
-| `captioneer-staging-ecs-execution-role` | ECS platform pulls/logging/application-secret injection | Unchanged; no observed consumers. |
-| `captioneer-staging-ecs-task-role` | Application S3/logging operations | Unchanged; no observed consumers. |
+All **17 mutation calls succeeded** between 12:50:49 and 12:52:28 UTC: four
+managed-policy detachments, eight inline-policy removals and five role deletions.
+The shared managed-policy objects themselves were retained.
 
-The account-wide GitHub OIDC provider, shared AWS managed policies, other
-projects' identities and AWS workload resources were not modified.
+`GetRole` returned `NoSuchEntity` for each role immediately after deletion and
+again during final verification. The account's role count fell from **138 to
+133**, with no Captioneer-named roles remaining. Every other role's name and
+principal ID matched the pre-change inventory. The shared GitHub OIDC provider's
+metadata matched exactly, and all four detached AWS managed policies retained
+their original policy IDs. No replacement identities were created.
 
-## What containment changed
+## Dependency check before deletion
 
-Two exact changes were applied to each of the first two roles, after a fresh STS
-account check, trust preconditions and private backups:
-
-1. Added the inline permission policy `AWSInfraCaptioneerQuarantine20260917`,
-   matching [captioneer-quarantine-permissions.json](../policies/captioneer-quarantine-permissions.json).
-   Its unconditional explicit deny covers all actions/resources, including
-   permissions that would otherwise be granted to existing role sessions.
-2. Replaced the role's trust with
-   [captioneer-quarantine-trust.json](../policies/captioneer-quarantine-trust.json).
-   It contains an explicit deny for same-account `AssumeRole` and **no allow
-   statements for any principal or assumption method**. The GitHub allow was
-   removed from these roles; the shared provider itself remains intact.
-
-The existing permission attachments were retained behind the deny. This is
-quarantine, not least-privilege redeployment. Removing the deny would restore
-the effect of those grants and must not be treated as routine cleanup.
-The earlier [staging/main trust proposal](../policies/captioneer-staging-github-trust.json)
-was **not** deployed; it remains a candidate for a reviewed future replacement.
-
-Both quarantine documents passed AWS Access Analyzer validation without findings.
-The live trust and inline permission documents were re-read and matched exactly.
-`SimulatePrincipalPolicy` returned `explicitDeny` for six sampled actions on each
-role: IAM user creation, role passing, EC2 describe, S3 account listing, secret
-value retrieval and role assumption. None of those mutations or secret reads
-was executed. Simulations verify policy decisions, not possession/testing of
-old session credentials; IAM changes are eventually consistent.
-
-Trust changes alone do not remove existing sessions' permissions. The role-local
-deny addresses that gap, subject to IAM propagation. It does not revoke sessions
-already obtained in **other** roles through role chaining. No assertion of
-complete incident containment or absence of prior misuse is made.
-[AWS temporary-session permission control](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_control-access_disable-perms.html),
-[AWS session revocation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_revoke-sessions.html).
-
-## Dependency checks before deletion
-
-Read-only inspection covered all 17 enabled regions: `ap-south-1`,
-`ca-central-1`, `eu-central-1`, `us-west-1`, `us-west-2`, `eu-north-1`,
-`eu-west-3`, `eu-west-2`, `eu-west-1`, `ap-northeast-3`, `ap-northeast-2`,
-`ap-northeast-1`, `sa-east-1`, `ap-southeast-1`, `ap-southeast-2`, `us-east-1`
-and `us-east-2`. All selected calls succeeded.
+A fresh read-only check completed at **12:49:00 UTC**, before any deletion.
+All **268 checks passed across the 17 enabled regions**, with no failures or
+direct references to any of the five role identities. Their current role IDs,
+trust, attached and inline policies were checked against the saved baseline;
+none had instance-profile associations or a permissions boundary.
 
 | Dependency | Result |
 | --- | --- |
 | ECS clusters | Zero across the enabled regions. |
 | Active ECS task definitions | Six; all reference other roles. |
-| Lambda execution-role references | 78 inspected; no Captioneer role references. |
-| IAM instance profiles / EC2 attachments | Global profiles and two EC2 attachments inspected; no Captioneer roles. |
-| CloudFormation | 33 service-role references and enumerated IAM-role, instance-profile and ECS task-definition resources; no Captioneer ownership/reference found. |
-| EventBridge default-bus rules | 51 rules' targets inspected; no Captioneer role references. |
+| Lambda execution-role references | 81 rows with all function versions requested; no Captioneer role references. |
+| IAM instance profiles / EC2 attachments | Global profiles and two EC2 attachment rows inspected; no Captioneer roles. |
+| CloudFormation | 33 stack service-role rows plus enumerated IAM-role, instance-profile and ECS task-definition resources; no Captioneer ownership/reference found. |
+| EventBridge | Rules and targets across all 19 listed buses, including custom buses; no Captioneer role references. |
 | Scheduler / Step Functions | Four schedule targets and three state-machine execution roles; no Captioneer references. |
 
-These results make retiring the five roles appear low risk to observed workloads.
-They do not cover external CI consumers, inactive task definitions, custom
-EventBridge buses, every application/configuration reference, resource policies
-or Terraform state. Empty IAM `RoleLastUsed` data does not establish non-use.
-Bounded CloudTrail resource-name lookups for the three GitHub role names returned
-no events in `us-east-1` over the previous seven days; that is not an all-region
-assumption history or an incident investigation.
+The regions were `ap-south-1`, `ca-central-1`, `eu-central-1`, `us-west-1`,
+`us-west-2`, `eu-north-1`, `eu-west-3`, `eu-west-2`, `eu-west-1`,
+`ap-northeast-3`, `ap-northeast-2`, `ap-northeast-1`, `sa-east-1`,
+`ap-southeast-1`, `ap-southeast-2`, `us-east-1` and `us-east-2`.
 
-## Approved retirement process
+This check covered selected direct consumers. It did not establish the absence
+of historical/inactive references, resource-policy grants, application/static
+configuration, external CI, cross-account dependencies or Terraform-state
+references. It provided no atomic lock against concurrent deployments. Empty
+IAM `RoleLastUsed` data was not used as proof of non-use.
 
-On 18 September, the user explicitly chose retirement and removal of the five
-unused roles. The five names above are the approved deletion scope; no further
-deletion approval or replacement design is needed.
-Do not interpret “all roles” as all 138 roles in the AWS account. Resolve outside
-references and keep containment until affected sessions expire before removing
-the inline deny for deletion. The current one-hour role maximum alone does not
-establish every older session's expiry; removing the deny early can reopen access.
-Programmatic role deletion requires removing instance-profile associations,
-deleting inline policies and detaching managed policies before `DeleteRole`.
-Delete neither shared managed-policy objects nor the shared OIDC provider.
-Keep the quarantine deny until the final deletion stage; verify each targeted
-role returns `NoSuchEntity` afterward.
-[AWS DeleteRole requirements](https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeleteRole.html).
+## How the exposed roles were contained first
 
-If Captioneer is revived in a future task, define its intended runtime, deployment workflow,
-resource scope and source/state owner first. Create only the required identities:
-runtime roles for application needs, a narrowly trusted repository/environment/
-branch deployment role, and a separately controlled infrastructure change role
-only if needed. An administrator role open to GitHub is not a starting template.
-The saved private snapshots retain the old definitions; retirement does not
-authorize recreating either ECS role.
+On 17 September at approximately **21:18 UTC**, the Terraform and deployment
+bootstrap roles were quarantined after their global GitHub trust was discovered:
 
-Recreating the same name creates a new IAM principal ID. Existing policies using
-the former principal ID may stop working, while conditions matching an ARN string
-can match a recreated name again. Deletion/recreation therefore neither preserves
-every integration nor resets every possible grant. Verify both kinds of reference.
+1. Each received the inline policy `AWSInfraCaptioneerQuarantine20260917`, an
+   unconditional deny of all actions/resources. The
+   [permission document](../policies/historical/captioneer-2026-09/captioneer-quarantine-permissions.json)
+   is preserved unchanged.
+2. Each trust was replaced with a document containing an explicit deny for
+   same-account `AssumeRole` and no allow statements. The
+   [trust document](../policies/historical/captioneer-2026-09/captioneer-quarantine-trust.json)
+   is preserved unchanged. The shared GitHub provider was retained.
+
+Both documents passed AWS Access Analyzer validation without findings. Live
+documents matched exactly, and all 12 sampled principal-policy decisions were
+explicit denies. Those simulations did not perform secret reads or mutations,
+or exercise previously issued session credentials.
+
+More than 15 hours elapsed between quarantine and retirement, exceeding the
+12-hour maximum duration of direct web-identity sessions. Before deletion, the
+executor confirmed quarantine remained intact. It removed original permission
+grants first, retaining the quarantine deny until immediately before `DeleteRole`.
+The former wildcard trust was never restored.
+[AWS web-identity session duration](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoleWithWebIdentity.html),
+[role deletion requirements](https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeleteRole.html).
+
+Trust changes alone do not remove existing sessions' permissions. The role-local
+deny addressed that gap, subject to IAM propagation. Neither those simulations
+nor this retirement investigated sessions previously obtained in other roles
+through role chaining. No claim of complete incident containment or absence of
+prior misuse is made.
+[AWS temporary-session permission control](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_control-access_disable-perms.html),
+[AWS session revocation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_revoke-sessions.html).
+
+## Historical source and evidence
+
+The earlier
+[staging/main trust proposal](../policies/historical/captioneer-2026-09/captioneer-staging-github-trust.json)
+was **never deployed** and is superseded by retirement. These historical policy
+documents are audit records, not instructions to recreate the roles.
+
+The archived
+[Captioneer bootstrap source](https://github.com/cambridgetcg/captioneer/blob/019d3619f76dc4fce58f38d997421ff3caf5c27a/infrastructure/scripts/bootstrap-aws.sh)
+still contains unsafe trust defaults. Do not rerun it unchanged. Any future
+revival needs a separate design, source/state reconciliation and only the
+identities required by the intended workload. This cleanup did not import old
+Terraform state or restore the archived deployment workflow.
+
+Recreating a role name creates a new IAM principal ID. Policies tied to the old
+principal ID and conditions matching the ARN string behave differently after
+recreation; neither preservation of old integrations nor removal of every
+possible grant can be assumed.
 [AWS principal identity semantics](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_principal.html).
 
-The archived [Captioneer bootstrap source](https://github.com/cambridgetcg/captioneer/blob/019d3619f76dc4fce58f38d997421ff3caf5c27a/infrastructure/scripts/bootstrap-aws.sh)
-still contains the unsafe trust defaults. Do not rerun it unchanged. Source/state
-reconciliation is necessary before a rebuild; this cleanup does not import old
-Terraform state or restore the archived project's deployment workflow.
+Private metadata backups, dependency evidence and durable mutation journals are
+retained under ignored `inventory/local/`, with private filesystem permissions:
 
-Private snapshots, mutation journals and dependency observations remain under
-ignored `inventory/local/`. The final containment record ends
-`20260917T211812.040204Z-captioneer-containment.json`; the regional and detailed
-dependency reports end `20260917T211539.776395Z-captioneer-dependencies.json` and
-`20260917T211746.959750Z-captioneer-dependency-details.json`. Credentials, secret
-values, state and raw reports are not published.
+- Original role snapshot: `20260917T211309.978927Z-cambridge-tcg.json`.
+- Verified quarantine: `20260917T211812.040204Z-captioneer-containment.json`.
+- Fresh dependency gate: `20260918T124900.893682Z-captioneer-dependency-refresh.json`.
+- Verified retirement: `20260918T125250.602591Z-captioneer-retirement.json`.
+
+The retirement journal includes pre-change role definitions, operation outcomes,
+final verification and hashes of the historical evidence. Credentials, secret
+values, raw reports and Terraform state are not published.

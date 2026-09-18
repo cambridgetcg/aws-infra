@@ -80,8 +80,8 @@
       "regions": [
         "us-east-1"
       ],
-      "mechanism": "Retirement and deletion of five unused IAM roles authorized 2026-09-18; no rebuild. Two exposed roles last verified quarantined 2026-09-17. Removal awaits renewed login and refreshed dependency checks. Archived source/state must not recreate the roles. See docs/CAPTIONEER_CLEANUP.md.",
-      "status": "retirement-authorized-authentication-pending",
+      "mechanism": "Five unused Captioneer IAM roles deleted and verified absent 2026-09-18T12:52:50Z after a 17-region dependency refresh. No replacement roles; shared providers, policy objects and other role identities preserved. Archived source/state must not recreate the roles. Workload/storage retirement is outside this change. See docs/CAPTIONEER_CLEANUP.md.",
+      "status": "retired-iam-verified",
       "source_commit": "019d3619f76dc4fce58f38d997421ff3caf5c27a"
     }
   ]

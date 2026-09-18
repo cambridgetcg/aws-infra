@@ -1,10 +1,12 @@
 # Agent access: current boundary and proposed model
 
 **Reviewed 17 September 2026.** This document proposes how agents should receive
-AWS access. No roles, policies, assignments, keys or session settings were changed.
+AWS access. That review changed no roles, policies, assignments, keys or session settings.
 Detailed observations belong in [the IAM review](IAM_REVIEW_2026-09-17.md).
-That original review was read-only; the later [Captioneer containment](CAPTIONEER_CLEANUP.md)
-changed two deployment roles without implementing the agent-access model here.
+That original review was read-only. Subsequent [Captioneer cleanup](CAPTIONEER_CLEANUP.md)
+quarantined two deployment roles on 17 September and retired all five Captioneer
+roles on 18 September. It did not implement the agent-access model here. The
+renewed human administrator login was verified again for that cleanup.
 
 ## What agents can reach today
 
