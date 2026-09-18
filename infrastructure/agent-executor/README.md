@@ -6,9 +6,10 @@ AWS or a model. The interactive Codex app on Yu's current account remains outsid
 this boundary; selecting a narrower AWS profile cannot isolate that app from the
 human administrator cache.
 
-The [local Mac setup](setup-local.md) prepares a dedicated standard account and
-separate Colima profile, with a local credential pipe and no host SSH server.
-It records the remaining OS authentication, build and isolation prerequisites.
+The [local Mac setup](setup-local.md) has a verified, locked standard account
+and a running separate Colima profile, with a local credential pipe and no host
+SSH server. Image builds, complete isolation checks and fresh subscription
+authentication remain prerequisites for activation.
 
 ```mermaid
 flowchart LR

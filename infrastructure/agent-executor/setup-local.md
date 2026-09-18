@@ -1,8 +1,9 @@
 # Dedicated runtime on this Mac — review before activation
 
-The dedicated-account-and-VM setup on this Mac is authorized. The account has
-been created and files staged; VM startup and runtime activation are still
-pending. Keep [the executor activation requirements](README.md).
+The dedicated-account-and-VM setup on this Mac is authorized. The locked account
+and its staged files were verified at 18:42 UTC on 18 September, and its separate
+VM started at 18:43 UTC. Full VM inspection, container setup and runtime activation
+remain pending. Keep [the executor activation requirements](README.md).
 
 The macOS administrator-dialog attempt timed out on 18 September; the owner
 confirmed no dialog appeared. A Terminal handoff then created `aws-agent`
@@ -12,7 +13,12 @@ and checks that executable before any account changes. **Do not rerun creation
 against this existing account.** The prepared continuation checks its exact
 private identity, locked status, file hashes and actual home-access denial
 before starting only the new Colima profile; it changes no existing account
-attributes or staged files.
+attributes or staged files. The later continuation verified the real UID 502,
+supplementary groups, denied read/traversal of the human home, all 14 source
+hashes and the launcher's actual Python dependencies before starting the VM.
+Its final metadata checker expected incorrectly capitalized Lima JSON keys and
+stopped; a corrected inspection is prepared. No AWS or model credentials have
+been passed to this runtime.
 
 Read-only inspection on 2026-09-18 found Docker CLI 29.1.5, Colima 0.9.1,
 Lima 2.0.3, and Python 3.14.3 already installed. No Docker server was reachable.
@@ -23,8 +29,12 @@ password. Those observations do not establish the state of a future runtime.
 
 Later inspection found the default Homebrew Python executable is mode 0700 and
 inaccessible to the runtime account. Use **`/opt/homebrew/bin/python3.13`** for
-local runtime commands: it is Python 3.13.11 with accessible ancestry and passes
-the executor tests. No interpreter permissions were broadened. System Python
+local runtime commands: it is Python 3.13.11 with accessible ancestry, passes
+the executor tests and loads both launcher modules under the actual runtime UID.
+The host launchers use Docker subprocesses and do not require host Python SSL;
+their SHA-256 fallback, archive operations, entropy and nanosecond timestamp
+parsing were checked. The container's TLS checks remain required. No interpreter
+or Homebrew library permissions were broadened. System Python
 3.9 rejects nanosecond authentication timestamps and is not a substitute.
 
 The smallest local path is a new standard account `aws-agent`, its own Colima
@@ -98,8 +108,8 @@ sudo -n -u aws-agent -H /usr/bin/env -i \
   --template=false --activate=false --ssh-config=false --ssh-agent=false
 ```
 
-The locked identity's actual `sudo -u` execution and VZ startup are not yet
-proven by source review. If startup requires an interactive login, stop and
+The locked identity's actual `sudo -u` execution and VZ startup succeeded on
+18 September. For another machine, if startup requires an interactive login, stop and
 review a separate **standard GUI account** setup; never automatically unlock
 this identity, assign it a password, or grant it administrator privileges.
 [Apple's account setup instructions](https://support.apple.com/guide/mac-help/add-a-user-or-group-mchl3e281fc9/mac)
@@ -169,7 +179,9 @@ verified runtime controls. After the task, the container is removed; credentials
 expire normally. Stop only profile `aws-agent` under its owning account when
 finished. Leave the human's existing profiles and applications unchanged.
 
-Remaining activation steps are verification of the existing account and staged
-files, VM startup, actual image/proxy build and isolation probes, and verified
-task model authentication. The local continuation requires human OS authentication;
-browser SSO login alone cannot satisfy that requirement.
+Remaining activation steps are complete VM inspection, actual image/proxy builds
+and isolation probes, and fresh task model authentication. A temporary foreground
+setup session is prepared with a fixed list of reviewed, credential-free actions
+and private receipts. It does not install a service or change sudo rules. Human
+OS authentication is still needed to enter that session; browser SSO login alone
+cannot satisfy that requirement.

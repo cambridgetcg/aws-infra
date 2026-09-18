@@ -107,8 +107,12 @@ credentials. Their recorded expirations were 18:18:15 and 18:18:24 UTC, respecti
 
 ## Runtime choice
 
-The user selected **this Mac** for the isolated runtime. The separate runtime
-has not yet been created or verified. The
+The user selected **this Mac** for the isolated runtime. On 18 September at
+18:42 UTC, the locked standard account and its 14 staged files passed exact
+identity, ownership and hash checks. A real UID 502 process could run the
+launcher dependencies and could neither read nor traverse the human home.
+The dedicated Colima VM started at 18:43 UTC. Its full isolation checks and
+container setup remain pending; VM startup does not activate agent access. The
 [executor bundle](../infrastructure/agent-executor/README.md) implements the
 trusted issuer, separate launcher and whole Codex process described here. It
 defaults to inventory, pins the generated role's account/name/immutable ID,
@@ -130,8 +134,9 @@ no access to the human home, login caches, keychain, SSH agent or host-control
 sockets. A container can add restrictions, but a host agent retaining arbitrary
 shell/Docker access remains a trusted administrator outside that boundary.
 
-This Mac has Docker CLI 29.1.5, Colima 0.9.1 and Lima 2.0.3. No runtime was started
-or modified. **Installed Colima 0.9.1 turns an empty/null mount list into a writable
+This Mac has Docker CLI 29.1.5, Colima 0.9.1 and Lima 2.0.3. Only the new
+`aws-agent` profile was started; the human's existing profiles were preserved.
+**Installed Colima 0.9.1 turns an empty/null mount list into a writable
 home mount.** A dedicated profile needs an explicit nonempty task-only mount
 list, and its automatically added read-only Colima cache also needs review.
 Verify actual guest mounts before supplying credentials.
