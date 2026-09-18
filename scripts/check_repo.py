@@ -54,9 +54,11 @@ def check():
             local = unquote(target.split("#", 1)[0])
             if not (path.parent / local).exists():
                 errors.append(f"Broken local link: {path.relative_to(ROOT)} -> {target}")
-    for directory in (ROOT / "scripts", ROOT / "tests"):
-        for path in directory.glob("*.py"):
+    for directory in (ROOT / "scripts", ROOT / "tests", ROOT / "infrastructure"):
+        for path in directory.rglob("*.py"):
             ast.parse(path.read_text(), filename=str(path))
+    for path in (ROOT / "infrastructure").rglob("*.json"):
+        json.loads(path.read_text())
     for path in (ROOT / "policies").rglob("*.json"):
         policy = json.loads(path.read_text())
         if not isinstance(policy, dict) or policy.get("Version") != "2012-10-17" or not isinstance(policy.get("Statement"), list) or not policy["Statement"]:

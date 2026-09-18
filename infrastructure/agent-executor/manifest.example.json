@@ -1,0 +1,23 @@
+{
+  "account_id": "034362054546",
+  "region": "us-east-1",
+  "image": "sha256:REPLACE_WITH_LOCALLY_VERIFIED_EXECUTOR_IMAGE_ID",
+  "network": "aws-agent-internal",
+  "proxy": "http://egress:3128",
+  "proxy_identity": {
+    "container_id": "REPLACE_WITH_FULL_REVIEWED_PROXY_CONTAINER_ID",
+    "image_id": "sha256:REPLACE_WITH_VERIFIED_PROXY_IMAGE_ID",
+    "config_path": "/private/runtime/egress.squid.conf",
+    "config_sha256": "REPLACE_WITH_REVIEWED_CONFIG_SHA256"
+  },
+  "roles": {
+    "inventory": {
+      "role_arn": "REPLACE_WITH_PROVISIONED_AWSInfraInventory_IAM_ROLE_ARN",
+      "role_id": "REPLACE_WITH_PROVISIONED_IAM_ROLE_ID"
+    },
+    "iam-audit": {
+      "role_arn": "REPLACE_WITH_PROVISIONED_AWSInfraIAMAudit_IAM_ROLE_ARN",
+      "role_id": "REPLACE_WITH_PROVISIONED_IAM_ROLE_ID"
+    }
+  }
+}

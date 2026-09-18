@@ -1,0 +1,5 @@
+{
+  "task_id": "inventory-review",
+  "model": "REPLACE_WITH_APPROVED_MODEL",
+  "prompt": "Use only the task AWS profile to inspect the selected account. Run metadata reads permitted by the inventory tier. Never display credentials or configuration secrets. Summarize coverage and failures."
+}

@@ -12,7 +12,9 @@ renewed human administrator login was verified again for that cleanup.
 read-only agent access by default and grant temporary access to named projects
 for changes. The [role map](IAM_ROLE_MAP_2026-09-18.md) and
 [concrete access proposal](ACCESS_REBUILD.md) extend this review. The new
-permission sets, local profiles and isolated executor are not activated yet.
+local profiles are configured. The permission sets are in an unexecuted change
+set, and the [executor bundle](../infrastructure/agent-executor/README.md) is
+prepared but inactive. Authentication and live isolation checks remain pending.
 
 ## What agents can reach today
 

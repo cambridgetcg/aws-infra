@@ -13,6 +13,7 @@
 | Access controls | [Agent access model](AGENT_ACCESS.md) and inventory policy remain proposed. Captioneer's quarantine documents and unused trust proposal are [historical](../policies/historical/captioneer-2026-09/README.md). |
 | Cloud changes | [Five Captioneer roles deleted](CAPTIONEER_CLEANUP.md), verified at 12:52:50 UTC on 18 September. Four managed-policy attachments and eight inline policies removed. All 133 other role identities, the shared GitHub provider and shared policy objects were preserved. |
 | Access rebuild | User confirmed preserving applications, read-only default and temporary named-project access. [Additive foundation](../infrastructure/agent-access/README.md) validated by AWS; a four-Add CREATE change set is prepared but unexecuted. Portal URL supplied and local profiles configured. Browser SSO attempt timed out; logged-in identity verification and isolated executor activation remain pending. |
+| Executor | [Whole-agent runtime bundle](../infrastructure/agent-executor/README.md) prepared with fixed access tiers, expiring credential handoff and offline tests. It has not been built or started. Separate runtime, model authentication and live network/identity/expiry checks are required before activation. |
 
 The successful identity checks, inventory and retirement verification are dated
 observations. They do not establish an effective-permission audit of every resource or access

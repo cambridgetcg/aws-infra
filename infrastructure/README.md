@@ -9,6 +9,11 @@ sets and explicit assignments. It targets the existing Cambridge TCG instance
 and preserves all existing application roles. Its source would be owned here;
 no resources or state have been adopted by adding the proposal.
 
+The [isolated executor](agent-executor/README.md) contains the whole-agent runtime,
+temporary credential handoff, pinned image recipe and offline tests. It remains
+inactive until SSO provisioning, a separate runtime, model authentication and
+network isolation have been verified.
+
 Existing application definitions stay in their recorded repositories. Before
 adding a shared stack, record its purpose, AWS account and regions, state owner,
 deployment identity, dependencies, cost expectation, verification and rollback.

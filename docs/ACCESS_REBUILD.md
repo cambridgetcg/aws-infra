@@ -84,6 +84,14 @@ printed into prompts/transcripts. No credential export was performed here.
 
 ## Runtime choice
 
+The [executor bundle](../infrastructure/agent-executor/README.md) implements the
+trusted issuer, separate launcher and whole Codex process described here. It
+defaults to inventory, pins the generated role's account/name/immutable ID,
+rejects persistent credentials and ends before expiration. Its offline tests
+cover credential/identity rejection, archive handling, bounded I/O and container
+controls. The image and network have not been built or exercised; the bundle is
+prepared, not active. Named-project write access remains a per-project follow-up.
+
 Use a whole executor under a separate standard OS account or a remote VM with
 no access to the human home, login caches, keychain, SSH agent or host-control
 sockets. A container can add restrictions, but a host agent retaining arbitrary

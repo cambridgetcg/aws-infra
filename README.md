@@ -92,6 +92,7 @@ flowchart TB
 | [docs/STATUS.md](docs/STATUS.md) | Dated observations and outstanding setup. |
 | [infrastructure/](infrastructure/README.md) | Boundary for shared stacks adopted into this repository. |
 | [infrastructure/agent-access/](infrastructure/agent-access/README.md) | Validated, undeployed Identity Center foundation and profile example. |
+| [infrastructure/agent-executor/](infrastructure/agent-executor/README.md) | Prepared whole-agent container, temporary credential handoff and offline tests; inactive. |
 | `scripts/aws_inventory.py` | Account verification, offline plans and metadata collection. |
 | `tests/` | Offline tests for account selection, output and failure handling. |
 | `inventory/local/` | Generated private reports; never committed. |

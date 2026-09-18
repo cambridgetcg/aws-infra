@@ -1,8 +1,9 @@
 # AWS access
 
-As of 17 September 2026, AWS CLI v2 is installed on this machine. The only
-configured profile is `default`, using an `aws login` session and region
-`us-east-1`. After renewal, STS verified Cambridge TCG and the selected inventory
+As of 18 September 2026, AWS CLI v2 is installed on this machine. The existing
+`default` profile uses an `aws login` session and region
+`us-east-1`. Three SSO profiles are also configured; authentication and the new
+restricted permission sets remain pending. After renewal, STS verified Cambridge TCG and the selected inventory
 completed. The active principal is IAM user `YuCheung` with AdministratorAccess;
 it is not a restricted inventory identity. See the [IAM review](IAM_REVIEW_2026-09-17.md)
 and [agent credential model](AGENT_ACCESS.md).
@@ -36,22 +37,35 @@ See [AWS console-credential login](https://docs.aws.amazon.com/cli/latest/usergu
 ## When the profile uses IAM Identity Center instead
 
 Cambridge TCG already has IAM Identity Center in `us-east-1`, with Admin,
-PowerUser and ReadOnly permission sets; local SSO profiles are not configured.
-Use SSO for an account with an existing IAM Identity Center setup. Obtain
-its start/issuer URL, SSO region, account and assigned role from that setup; do
-not invent these values or replace `default` merely to run inventory. To create
-a separate profile and subsequently refresh its session:
+PowerUser and ReadOnly permission sets. The owner's portal URL is configured in
+`cambridge-human-admin`, `cambridge-agent-inventory` and `cambridge-iam-audit`.
+The first selects existing AdministratorAccess; the other two depend on the
+[unexecuted access foundation](../infrastructure/agent-access/README.md).
+Complete the human SSO login first:
 
 ```sh
-aws configure sso --profile cambridge-read
-aws sso login --profile cambridge-read
-aws sts get-caller-identity --profile cambridge-read --region us-east-1 --no-cli-pager
+aws sso login --profile cambridge-human-admin
+aws sts get-caller-identity --profile cambridge-human-admin --region us-east-1 --no-cli-pager
 ```
 
-`cambridge-read` is an example profile name, not a profile already configured on
-this machine. For an already configured SSO profile, skip `configure sso`.
-The SSO directory region and the resource region need not be the same.
+These profiles are on the human launcher; they must not be copied into an
+isolated agent. The SSO directory region and resource region need not be the same.
 See [AWS IAM Identity Center CLI configuration](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html).
+
+### If the ordinary AWS password does not work
+
+IAM users and IAM Identity Center users have separate credentials, even when
+their usernames match. The existing `aws login` IAM session does not sign the
+user into Identity Center. In the access portal, enter the SSO username, choose
+**Next**, then **Forgot password** to request a reset.
+[AWS portal password reset](https://docs.aws.amazon.com/singlesignon/latest/userguide/resetpassword-accessportal.html).
+
+An administrator already signed into the AWS console can open **IAM Identity
+Center → Users → the existing user → Reset password**. Verify the listed email
+before sending reset instructions. This console procedure applies to the
+Identity Center directory; external-provider or Active Directory passwords must
+be reset at their provider. Passwords cannot be retrieved from the inventory API.
+[AWS administrator reset procedure](https://docs.aws.amazon.com/singlesignon/latest/userguide/reset-password-for-user.html).
 
 ## Collector access
 
