@@ -36,12 +36,27 @@ and pass that path to the next `executor.py run --model-auth`.
 
 The helper displays only the expected OpenAI device URL and one-time code.
 Complete authorization with the intended subscription account. Keep the code
-out of saved logs and transcripts. After success, the container stays alive for
-up to 120 seconds so the helper can retrieve one bounded regular `0600`
-`auth.json` through a private Docker copy. It validates ChatGPT-only auth,
-atomically saves it as a private runtime-owned file, and removes the exact
-login container. Stopping the container before retrieval would discard tmpfs.
-No AWS session or model API key is supplied during login.
+out of saved logs and transcripts. After the CLI reports success, the container
+stays alive for up to 120 seconds while the helper reads the fixed
+`/home/agent/.codex/auth.json` path using `docker exec` as UID/GID `10001`.
+The reader refuses symlinks, hard links, nonregular files, other owners or modes,
+empty files and files larger than 64 KiB. It checks that the file's identity,
+size and modification time stayed unchanged during the read. Authentication
+bytes go only into the launcher's bounded private pipe, never the Terminal or
+saved diagnostics. The launcher validates ChatGPT-only auth, atomically saves
+it as a private runtime-owned file, and removes the exact login container.
+Stopping the container before retrieval would discard tmpfs. No AWS session or
+model API key is supplied during login.
+
+Docker documents that `docker cp` cannot copy certain tmpfs-backed files and
+suggests reading them inside the container with `docker exec`.
+[Docker copy corner cases](https://docs.docker.com/reference/cli/docker/container/cp/#corner-cases).
+On this runtime, a credential-free reproduction confirmed that the old copy
+operation failed without output; the new reader retrieved a known 24-byte
+synthetic file with the required owner and mode. Those test containers were
+removed. This verifies the file transport, not a completed subscription login
+or model task; the corrected login attempt still needs live verification.
+Failure diagnostics report only fixed phase names and the exception class.
 
 The runtime's separate login must not be used simultaneously by another CLI,
 IDE or worker.

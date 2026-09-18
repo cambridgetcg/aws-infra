@@ -8,8 +8,8 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-import tarfile
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -33,18 +33,21 @@ def report():
                                   "proxy_config_sha256": "d" * 64}}
 
 
-def auth_tar(mode=0o600, link=False, value=AUTH):
-    raw = io.BytesIO()
-    payload = json.dumps(value).encode()
-    with tarfile.open(fileobj=raw, mode="w:") as archive:
-        entry = tarfile.TarInfo("auth.json")
-        entry.mode, entry.uid, entry.gid = mode, 10001, 10001
-        if link:
-            entry.type, entry.linkname = tarfile.SYMTYPE, "/outside"
-        else:
-            entry.size = len(payload)
-        archive.addfile(entry, None if link else io.BytesIO(payload))
-    return raw.getvalue()
+def reader():
+    namespace = {"__name__": "reader_test"}
+    exec(login.READ_AUTH, namespace)
+    return namespace["private_auth_bytes"]
+
+
+def container_metadata(original, **overrides):
+    def metadata(descriptor):
+        info = original(descriptor)
+        fields = {key: getattr(info, key) for key in (
+            "st_mode", "st_nlink", "st_dev", "st_ino", "st_size", "st_mtime_ns")}
+        fields.update(st_uid=10001, st_gid=10001)
+        fields.update(overrides)
+        return SimpleNamespace(**fields)
+    return metadata
 
 
 class LoginTests(unittest.TestCase):
@@ -72,12 +75,53 @@ class LoginTests(unittest.TestCase):
             with self.assertRaises(login.ex.Rejected):
                 login.verify_network_evidence(dict(report(), **changed), MANIFEST, NETWORK, IP)
 
-    def test_copy_accepts_only_private_regular_chatgpt_auth(self):
-        self.assertEqual(login.extract_auth(auth_tar()), AUTH)
-        for raw in (auth_tar(mode=0o644), auth_tar(link=True), auth_tar(value={"OPENAI_API_KEY": "offline-api"}),
-                    b"x" * 131073):
+    def test_authentication_parser_preserves_strict_schema_and_bound(self):
+        self.assertEqual(login.parse_auth(json.dumps(AUTH).encode()), AUTH)
+        for raw in (b"not JSON", b"[]", json.dumps({"OPENAI_API_KEY": "offline-api"}).encode(),
+                    b"x" * (login.ex.MAX_MODEL_AUTH + 1)):
             with self.assertRaises(login.ex.Rejected):
-                login.extract_auth(raw)
+                login.parse_auth(raw)
+
+    def test_container_reader_rejects_symlink_nonregular_hardlink_and_mode(self):
+        read = reader()
+        original = os.fstat
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "auth.json"
+            raw = json.dumps(AUTH).encode()
+            path.write_bytes(raw); path.chmod(0o600)
+            link = Path(directory) / "link"
+            link.symlink_to(path)
+            fifo = Path(directory) / "fifo"
+            os.mkfifo(fifo, 0o600)
+            with patch.object(os, "fstat", side_effect=container_metadata(original)):
+                self.assertEqual(read(path, login.ex.MAX_MODEL_AUTH), raw)
+                for bad in (link, fifo):
+                    with self.subTest(path=bad.name), self.assertRaises((OSError, ValueError)):
+                        read(bad, login.ex.MAX_MODEL_AUTH)
+                hard = Path(directory) / "hard"
+                os.link(path, hard)
+                with self.assertRaises(ValueError):
+                    read(path, login.ex.MAX_MODEL_AUTH)
+                hard.unlink()
+                path.chmod(0o644)
+                with self.assertRaises(ValueError):
+                    read(path, login.ex.MAX_MODEL_AUTH)
+
+    def test_container_reader_rejects_wrong_ownership_empty_and_oversize(self):
+        read = reader()
+        original = os.fstat
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "auth.json"
+            path.write_bytes(json.dumps(AUTH).encode()); path.chmod(0o600)
+            for changed in ({"st_uid": 0}, {"st_gid": 0}):
+                with self.subTest(changed=changed), \
+                        patch.object(os, "fstat", side_effect=container_metadata(original, **changed)), \
+                        self.assertRaises(ValueError):
+                    read(path, login.ex.MAX_MODEL_AUTH)
+            for raw in (b"", b"x" * (login.ex.MAX_MODEL_AUTH + 1)):
+                path.write_bytes(raw)
+                with patch.object(os, "fstat", side_effect=container_metadata(original)), self.assertRaises(ValueError):
+                    read(path, login.ex.MAX_MODEL_AUTH)
 
     def test_new_target_is_private_atomic_and_never_overwrites(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -108,6 +152,26 @@ class LoginTests(unittest.TestCase):
                     save(AUTH)
             self.assertEqual(path.read_text(), "preserve-other-writer")
 
+    def test_invalid_schema_does_not_save_authentication(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory).resolve() / "auth.json"
+            with self.assertRaises(login.ex.Rejected), login.new_auth_target(path) as save:
+                save(login.parse_auth(b'{"OPENAI_API_KEY":"offline-invalid"}'))
+            self.assertFalse(path.exists())
+
+    def test_failure_diagnostics_expose_only_fixed_phase_and_exception_class(self):
+        def failure(args, phase):
+            phase("validate-auth")
+            raise ValueError("private-synthetic-error-text")
+        with patch.object(login, "_login", side_effect=failure), \
+                patch.object(login.sys, "stderr", new_callable=io.StringIO) as output, \
+                self.assertRaises(ValueError):
+            login.login(None)
+        events = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertEqual(events[-1], {"status": "subscription_login_failed", "phase": "validate-auth",
+                                     "error_class": "ValueError"})
+        self.assertNotIn("private-synthetic-error-text", output.getvalue())
+
     def test_login_uses_exact_controls_and_never_prints_copied_auth(self):
         real_popen = subprocess.Popen
         observed = []
@@ -121,21 +185,28 @@ class LoginTests(unittest.TestCase):
             with patch.object(login.ex, "require_runtime_user"), \
                  patch.object(login.ex, "operator_json", side_effect=[MANIFEST, report()]), \
                  patch.object(login.ex, "inspect_network", return_value=(NETWORK, IP)), \
-                 patch.object(login.ex, "bounded_command", return_value=auth_tar()) as copy, \
+                 patch.object(login.ex, "bounded_command", return_value=json.dumps(AUTH).encode()) as read, \
                  patch.object(login.subprocess, "Popen", side_effect=fake_popen), \
                  patch.object(login.subprocess, "run", return_value=argparse.Namespace(returncode=0)) as cleanup, \
+                 patch.object(login.sys, "stderr", new_callable=io.StringIO) as diagnostics, \
                  patch.object(login.sys, "stdout", new_callable=io.StringIO) as output:
                 login.login(args)
             self.assertEqual(json.loads(path.read_text()), AUTH)
             for token in AUTH["tokens"].values():
                 self.assertNotIn(token, output.getvalue())
+                self.assertNotIn(token, diagnostics.getvalue())
             command, options = observed[0]
             for flag in ("--read-only", "--cap-drop", "--log-driver", "--tmpfs"):
                 self.assertIn(flag, command)
             self.assertNotIn("--rm", command)
             self.assertFalse({"AWS_ACCESS_KEY_ID", "OPENAI_API_KEY", "CODEX_API_KEY"}.intersection(options["env"]))
             self.assertIn("time.sleep(120)", command[-1])
-            self.assertEqual(copy.call_args.kwargs["limit"], 131072)
+            self.assertEqual(read.call_args.kwargs["limit"], login.ex.MAX_MODEL_AUTH)
+            read_command = read.call_args.args[0]
+            self.assertEqual(read_command[:4], ["docker", "exec", "--user", "10001:10001"])
+            self.assertEqual(read_command[5:], ["/usr/local/bin/python3", "-I", "-B", "-c", login.READ_AUTH])
+            self.assertEqual([json.loads(line)["phase"] for line in diagnostics.getvalue().splitlines()],
+                             ["login", "client-complete", "read-auth", "validate-auth", "save-auth"])
             cleanup.assert_called_once()
 
 

@@ -16,7 +16,6 @@ import signal
 import stat
 import subprocess
 import sys
-import tarfile
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -43,6 +42,36 @@ if result.returncode != 0:
     sys.exit(1)
 print('AWS_AGENT_SUBSCRIPTION_LOGIN_READY', flush=True)
 time.sleep(120)
+'''
+
+# Docker cp does not reliably read tmpfs-backed paths. Read this fixed file
+# inside the existing container; only the private launcher pipe receives it.
+READ_AUTH = r'''
+import os, stat, sys
+def private_auth_bytes(path, limit):
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        if not (stat.S_ISREG(info.st_mode) and info.st_uid == info.st_gid == 10001
+                and info.st_nlink == 1 and stat.S_IMODE(info.st_mode) == 0o600
+                and 0 < info.st_size <= limit):
+            raise ValueError('Invalid private authentication file')
+        raw = stream.read(limit + 1)
+        if len(raw) > limit:
+            raise ValueError('Authentication size limit exceeded')
+        current = os.fstat(stream.fileno())
+        if (current.st_dev, current.st_ino, current.st_size, current.st_mtime_ns) != (
+                info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns) or len(raw) != info.st_size:
+            raise ValueError('Authentication file changed during read')
+        return raw
+if __name__ == '__main__':
+    try:
+        if os.getuid() != 10001 or os.getgid() != 10001:
+            raise ValueError('Unexpected reader identity')
+        sys.stdout.buffer.write(private_auth_bytes('/home/agent/.codex/auth.json', 65536))
+        sys.stdout.buffer.flush()
+    except BaseException:
+        sys.exit(1)
 '''
 
 
@@ -74,16 +103,8 @@ def prompt_line(line, state):
     return None
 
 
-def extract_auth(raw):
-    ex.require(len(raw) <= 131072, "Login authentication copy exceeds its size bound")
-    with tarfile.open(fileobj=io.BytesIO(raw), mode="r:") as archive:
-        entries = archive.getmembers()
-        ex.require(len(entries) == 1 and entries[0].isfile() and entries[0].name == "auth.json"
-                   and entries[0].uid == 10001 and entries[0].gid == 10001
-                   and entries[0].mode & 0o777 == 0o600 and entries[0].size <= ex.MAX_MODEL_AUTH,
-                   "Login authentication copy must be one private regular container file")
-        with archive.extractfile(entries[0]) as stream:
-            authentication = ex.read_json(stream, ex.MAX_MODEL_AUTH)
+def parse_auth(raw):
+    authentication = ex.read_json(io.BytesIO(raw), ex.MAX_MODEL_AUTH)
     ex.validate_model_auth(authentication)
     return authentication
 
@@ -145,7 +166,7 @@ def new_auth_target(path):
         os.close(directory)
 
 
-def login(args):
+def _login(args, phase):
     ex.require_runtime_user()
     manifest = ex.operator_json(args.manifest)
     report = ex.operator_json(args.network_evidence)
@@ -182,13 +203,19 @@ def login(args):
                             if line == READY:
                                 ex.require(state.get("url") and state.get("code"), "Expected device-code flow was not observed")
                                 ready = True
+                                phase("client-complete")
                                 break
                             message = prompt_line(line, state)
                             if message:
                                 print(message, flush=True)
-            raw = ex.bounded_command(["docker", "cp", name + ":/home/agent/.codex/auth.json", "-"],
-                                     env, timeout=30, limit=131072)
-            save(extract_auth(raw))
+            phase("read-auth")
+            raw = ex.bounded_command(["docker", "exec", "--user", "10001:10001", name,
+                                      "/usr/local/bin/python3", "-I", "-B", "-c", READ_AUTH],
+                                     env, timeout=30, limit=ex.MAX_MODEL_AUTH)
+            phase("validate-auth")
+            authentication = parse_auth(raw)
+            phase("save-auth")
+            save(authentication)
         finally:
             cleaned = False
             try:
@@ -208,6 +235,23 @@ def login(args):
                       "authentication_printed": False, "aws_credentials_supplied": False, "activation_ready": False}))
 
 
+def login(args):
+    current_phase = "login"
+
+    def phase(value):
+        nonlocal current_phase
+        current_phase = value
+        print(json.dumps({"status": "subscription_login_phase", "phase": value}), file=sys.stderr, flush=True)
+
+    phase("login")
+    try:
+        _login(args, phase)
+    except BaseException as error:
+        print(json.dumps({"status": "subscription_login_failed", "phase": current_phase,
+                          "error_class": type(error).__name__}), file=sys.stderr, flush=True)
+        raise
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--login", action="store_true")
@@ -223,10 +267,9 @@ def main():
     try:
         login(args)
         return 0
-    except ex.Rejected as error:
-        print(str(error), file=sys.stderr)
     except BaseException:
-        print("Subscription login stopped; diagnostics suppressed. Inspect cleanup before retrying.", file=sys.stderr)
+        # login() already emitted only fixed phases and the exception class.
+        pass
     return 1
 
 
