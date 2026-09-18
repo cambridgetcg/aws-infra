@@ -17,13 +17,12 @@
       "id": "rewardspro-legacy",
       "repository": "https://github.com/cambridgetcg/Cambridge-TCG-monorepo",
       "path": "apps/rewardspro/infrastructure/terraform",
-      "account_alias": "rewardspro",
+      "account_alias": "cambridge-tcg",
       "regions": [
-        "eu-north-1",
-        "us-east-1"
+        "eu-north-1"
       ],
-      "mechanism": "Legacy serverless Terraform; identical standalone rewardspro-production copy; actual backend owner unverified",
-      "status": "source-defined-unverified",
+      "mechanism": "Legacy serverless Terraform; matching rewardspro-prod-lambda-execution role and eight Lambda function/version references observed in this account in eu-north-1 on 2026-09-18. Full stack and Terraform state ownership remain unreconciled; the separate historical RewardsPro account remains unverified.",
+      "status": "source-iam-observed-state-unreconciled",
       "source_commit": "056d52fb1e51d1aa45e2e208f84034a92f1446e2"
     },
     {
@@ -71,6 +70,43 @@
       "mechanism": "Existing AWS exposure/cost reporting automation; deployed schedule and notification settings not verified",
       "status": "source-defined-unverified",
       "source_commit": "c8dfd9a1e38e88574e23fc3a40e2046400e3ed98"
+    },
+    {
+      "id": "business-ecosystem",
+      "repository": "https://github.com/cambridgetcg/business-ecosystem",
+      "path": "infrastructure/terraform",
+      "account_alias": "cambridge-tcg",
+      "regions": [
+        "us-east-1"
+      ],
+      "mechanism": "Terraform IAM, VPC and progress-tracking modules match 15 observed IAM roles. Progress Lambda and Scheduler references observed in us-east-1 on 2026-09-18; full stack and Terraform state ownership remain unreconciled.",
+      "status": "source-iam-observed-state-unreconciled",
+      "source_commit": "5bb0bf02149d99717adaf0ce67ea16ee7fad3ab9"
+    },
+    {
+      "id": "saas-marketing-suite",
+      "repository": "https://github.com/cambridgetcg/saas-marketing-suite",
+      "path": "infrastructure/terraform",
+      "account_alias": "cambridge-tcg",
+      "regions": [
+        "us-west-2",
+        "us-east-1"
+      ],
+      "mechanism": "Archived marketing Terraform and ai-visibility/infrastructure/terraform match 14 observed IAM roles. Lambda references observed on 2026-09-18 in us-west-2 for marketing and us-east-1 for AI visibility; full stack and Terraform state ownership remain unreconciled.",
+      "status": "source-iam-observed-state-unreconciled",
+      "source_commit": "d12c53bf21b9de78059aa38743377c85c797d1d5"
+    },
+    {
+      "id": "cardforum-security",
+      "repository": "https://github.com/cambridgetcg/cardforum_io",
+      "path": "infrastructure/lib/stacks",
+      "account_alias": "cambridge-tcg",
+      "regions": [
+        "us-east-1"
+      ],
+      "mechanism": "Archived CDK IAM, leak-detection and monitoring stacks match nine observed IAM roles owned by the corresponding cardforum-dev CloudFormation stacks in us-east-1. Source-to-deployment reconciliation remains incomplete; this is not verification of the full stack.",
+      "status": "source-iam-observed-deployment-unreconciled",
+      "source_commit": "c588f9510958c518b3b1f4859d581ad27b5be238"
     },
     {
       "id": "captioneer",

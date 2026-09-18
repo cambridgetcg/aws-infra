@@ -1,0 +1,340 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "PROPOSED: separate one-hour inventory and IAM audit access in the existing Cambridge TCG Identity Center. No existing roles are adopted or deleted.",
+  "Metadata": {
+    "Status": "proposed-not-deployed",
+    "SourceOwner": "cambridgetcg/aws-infra",
+    "ExpectedAccount": "034362054546",
+    "ExpectedRegion": "us-east-1"
+  },
+  "Parameters": {
+    "InventoryPrincipalId": {
+      "Type": "String",
+      "AllowedPattern": "^([0-9a-f]{10}-|)[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$",
+      "Description": "Explicitly selected existing Identity Center user/group ID. No default or automatic assignment."
+    },
+    "InventoryPrincipalType": {
+      "Type": "String",
+      "AllowedValues": [
+        "USER",
+        "GROUP"
+      ],
+      "Description": "Type of the selected existing Identity Center principal."
+    },
+    "IAMAuditPrincipalId": {
+      "Type": "String",
+      "AllowedPattern": "^([0-9a-f]{10}-|)[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$",
+      "Description": "Explicitly selected existing Identity Center user/group ID. No default or automatic assignment."
+    },
+    "IAMAuditPrincipalType": {
+      "Type": "String",
+      "AllowedValues": [
+        "USER",
+        "GROUP"
+      ],
+      "Description": "Type of the selected existing Identity Center principal."
+    }
+  },
+  "Mappings": {
+    "ApprovedControlPlane": {
+      "034362054546": {
+        "InstanceArn": "arn:aws:sso:::instance/ssoins-72237658457aa79e"
+      }
+    },
+    "ApprovedRegions": {
+      "us-east-1": {
+        "InstanceAttribute": "InstanceArn"
+      }
+    }
+  },
+  "Resources": {
+    "InventoryPermissionSet": {
+      "Type": "AWS::SSO::PermissionSet",
+      "Properties": {
+        "InstanceArn": {
+          "Fn::FindInMap": [
+            "ApprovedControlPlane",
+            {
+              "Ref": "AWS::AccountId"
+            },
+            {
+              "Fn::FindInMap": [
+                "ApprovedRegions",
+                {
+                  "Ref": "AWS::Region"
+                },
+                "InstanceAttribute"
+              ]
+            }
+          ]
+        },
+        "Name": "AWSInfraInventory",
+        "Description": "Dedicated Inventory metadata access. One-hour credentials; all other API actions explicitly denied.",
+        "SessionDuration": "PT1H",
+        "InlinePolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "AllowNamedMetadataReads",
+              "Effect": "Allow",
+              "Action": [
+                "ec2:DescribeInstances",
+                "ec2:DescribeVpcs",
+                "rds:DescribeDBInstances",
+                "ecs:ListClusters",
+                "dynamodb:ListTables",
+                "sqs:ListQueues",
+                "cloudformation:ListStacks",
+                "s3:ListAllMyBuckets"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Sid": "DenyEverythingOutsideThisTier",
+              "Effect": "Deny",
+              "NotAction": [
+                "ec2:DescribeInstances",
+                "ec2:DescribeVpcs",
+                "rds:DescribeDBInstances",
+                "ecs:ListClusters",
+                "dynamodb:ListTables",
+                "sqs:ListQueues",
+                "cloudformation:ListStacks",
+                "s3:ListAllMyBuckets",
+                "sts:GetCallerIdentity"
+              ],
+              "Resource": "*"
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "aws-infra"
+          },
+          {
+            "Key": "Purpose",
+            "Value": "agent-access"
+          }
+        ]
+      }
+    },
+    "InventoryAssignment": {
+      "Type": "AWS::SSO::Assignment",
+      "Properties": {
+        "InstanceArn": {
+          "Fn::FindInMap": [
+            "ApprovedControlPlane",
+            {
+              "Ref": "AWS::AccountId"
+            },
+            {
+              "Fn::FindInMap": [
+                "ApprovedRegions",
+                {
+                  "Ref": "AWS::Region"
+                },
+                "InstanceAttribute"
+              ]
+            }
+          ]
+        },
+        "PermissionSetArn": {
+          "Fn::GetAtt": [
+            "InventoryPermissionSet",
+            "PermissionSetArn"
+          ]
+        },
+        "PrincipalId": {
+          "Ref": "InventoryPrincipalId"
+        },
+        "PrincipalType": {
+          "Ref": "InventoryPrincipalType"
+        },
+        "TargetId": {
+          "Ref": "AWS::AccountId"
+        },
+        "TargetType": "AWS_ACCOUNT"
+      }
+    },
+    "IAMAuditPermissionSet": {
+      "Type": "AWS::SSO::PermissionSet",
+      "Properties": {
+        "InstanceArn": {
+          "Fn::FindInMap": [
+            "ApprovedControlPlane",
+            {
+              "Ref": "AWS::AccountId"
+            },
+            {
+              "Fn::FindInMap": [
+                "ApprovedRegions",
+                {
+                  "Ref": "AWS::Region"
+                },
+                "InstanceAttribute"
+              ]
+            }
+          ]
+        },
+        "Name": "AWSInfraIAMAudit",
+        "Description": "Dedicated IAMAudit metadata access. One-hour credentials; all other API actions explicitly denied.",
+        "SessionDuration": "PT1H",
+        "InlinePolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "AllowNamedMetadataReads",
+              "Effect": "Allow",
+              "Action": [
+                "iam:GetAccountSummary",
+                "iam:GetAccountPasswordPolicy",
+                "iam:GetAccountAuthorizationDetails",
+                "iam:ListRoles",
+                "iam:GetRole",
+                "iam:ListRolePolicies",
+                "iam:GetRolePolicy",
+                "iam:ListAttachedRolePolicies",
+                "iam:ListInstanceProfiles",
+                "iam:ListInstanceProfilesForRole",
+                "iam:GetInstanceProfile",
+                "iam:ListPolicies",
+                "iam:GetPolicy",
+                "iam:GetPolicyVersion",
+                "iam:ListPolicyVersions",
+                "iam:ListEntitiesForPolicy",
+                "iam:ListUsers",
+                "iam:GetUser",
+                "iam:ListUserPolicies",
+                "iam:GetUserPolicy",
+                "iam:ListAttachedUserPolicies",
+                "iam:ListGroupsForUser",
+                "iam:ListGroups",
+                "iam:GetGroup",
+                "iam:ListGroupPolicies",
+                "iam:GetGroupPolicy",
+                "iam:ListAttachedGroupPolicies",
+                "iam:ListMFADevices",
+                "iam:ListAccessKeys",
+                "iam:GetAccessKeyLastUsed",
+                "iam:ListOpenIDConnectProviders",
+                "iam:GetOpenIDConnectProvider",
+                "iam:ListSAMLProviders",
+                "iam:GetSAMLProvider"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Sid": "DenyEverythingOutsideThisTier",
+              "Effect": "Deny",
+              "NotAction": [
+                "iam:GetAccountSummary",
+                "iam:GetAccountPasswordPolicy",
+                "iam:GetAccountAuthorizationDetails",
+                "iam:ListRoles",
+                "iam:GetRole",
+                "iam:ListRolePolicies",
+                "iam:GetRolePolicy",
+                "iam:ListAttachedRolePolicies",
+                "iam:ListInstanceProfiles",
+                "iam:ListInstanceProfilesForRole",
+                "iam:GetInstanceProfile",
+                "iam:ListPolicies",
+                "iam:GetPolicy",
+                "iam:GetPolicyVersion",
+                "iam:ListPolicyVersions",
+                "iam:ListEntitiesForPolicy",
+                "iam:ListUsers",
+                "iam:GetUser",
+                "iam:ListUserPolicies",
+                "iam:GetUserPolicy",
+                "iam:ListAttachedUserPolicies",
+                "iam:ListGroupsForUser",
+                "iam:ListGroups",
+                "iam:GetGroup",
+                "iam:ListGroupPolicies",
+                "iam:GetGroupPolicy",
+                "iam:ListAttachedGroupPolicies",
+                "iam:ListMFADevices",
+                "iam:ListAccessKeys",
+                "iam:GetAccessKeyLastUsed",
+                "iam:ListOpenIDConnectProviders",
+                "iam:GetOpenIDConnectProvider",
+                "iam:ListSAMLProviders",
+                "iam:GetSAMLProvider",
+                "sts:GetCallerIdentity"
+              ],
+              "Resource": "*"
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "aws-infra"
+          },
+          {
+            "Key": "Purpose",
+            "Value": "agent-access"
+          }
+        ]
+      }
+    },
+    "IAMAuditAssignment": {
+      "Type": "AWS::SSO::Assignment",
+      "Properties": {
+        "InstanceArn": {
+          "Fn::FindInMap": [
+            "ApprovedControlPlane",
+            {
+              "Ref": "AWS::AccountId"
+            },
+            {
+              "Fn::FindInMap": [
+                "ApprovedRegions",
+                {
+                  "Ref": "AWS::Region"
+                },
+                "InstanceAttribute"
+              ]
+            }
+          ]
+        },
+        "PermissionSetArn": {
+          "Fn::GetAtt": [
+            "IAMAuditPermissionSet",
+            "PermissionSetArn"
+          ]
+        },
+        "PrincipalId": {
+          "Ref": "IAMAuditPrincipalId"
+        },
+        "PrincipalType": {
+          "Ref": "IAMAuditPrincipalType"
+        },
+        "TargetId": {
+          "Ref": "AWS::AccountId"
+        },
+        "TargetType": "AWS_ACCOUNT"
+      }
+    }
+  },
+  "Outputs": {
+    "InventoryPermissionSetArn": {
+      "Value": {
+        "Fn::GetAtt": [
+          "InventoryPermissionSet",
+          "PermissionSetArn"
+        ]
+      }
+    },
+    "IAMAuditPermissionSetArn": {
+      "Value": {
+        "Fn::GetAtt": [
+          "IAMAuditPermissionSet",
+          "PermissionSetArn"
+        ]
+      }
+    }
+  }
+}

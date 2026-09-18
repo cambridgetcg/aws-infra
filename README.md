@@ -16,6 +16,13 @@ on 18 September. See
 [agent access](docs/AGENT_ACCESS.md) for credential handling and the proposed
 separation between discovery, deployment and administration.
 
+The [18 September role map](docs/IAM_ROLE_MAP_2026-09-18.md) covers all 133
+remaining roles. The [access rebuild](docs/ACCESS_REBUILD.md) preserves current
+applications and prepares read-only agent access with temporary project access.
+Its reviewed [foundation template](infrastructure/agent-access/README.md) is not
+deployed; named SSO profiles are configured, while sign-in verification and
+executor isolation remain to be completed.
+
 ## Start here
 
 Requirements: macOS or Linux, Python 3.11+, Git, and AWS CLI v2 for authenticated reads.
@@ -76,12 +83,15 @@ flowchart TB
 | [docs/OWNERSHIP.md](docs/OWNERSHIP.md) | Human-readable map of what already exists and who changes it. |
 | [docs/ACCESS.md](docs/ACCESS.md) | Temporary authentication and collector permissions. |
 | [docs/AGENT_ACCESS.md](docs/AGENT_ACCESS.md) | Current credential boundary and proposed agent access tiers. |
+| [docs/IAM_ROLE_MAP_2026-09-18.md](docs/IAM_ROLE_MAP_2026-09-18.md) | All 133 remaining roles, owners, configured consumers and gaps. |
+| [docs/ACCESS_REBUILD.md](docs/ACCESS_REBUILD.md) | Confirmed migration scope, profiles and isolated agent flow. |
 | [docs/IAM_REVIEW_2026-09-17.md](docs/IAM_REVIEW_2026-09-17.md) | Verified IAM findings, priorities and review limits. |
 | [docs/CAPTIONEER_CLEANUP.md](docs/CAPTIONEER_CLEANUP.md) | Completed five-role retirement, dependency checks and verification. |
 | [policies/](policies/README.md) | Proposed inventory permissions and historical Captioneer policy documents. |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Inventory, change, verification and recovery workflow. |
 | [docs/STATUS.md](docs/STATUS.md) | Dated observations and outstanding setup. |
 | [infrastructure/](infrastructure/README.md) | Boundary for shared stacks adopted into this repository. |
+| [infrastructure/agent-access/](infrastructure/agent-access/README.md) | Validated, undeployed Identity Center foundation and profile example. |
 | `scripts/aws_inventory.py` | Account verification, offline plans and metadata collection. |
 | `tests/` | Offline tests for account selection, output and failure handling. |
 | `inventory/local/` | Generated private reports; never committed. |

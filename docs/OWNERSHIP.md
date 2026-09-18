@@ -5,6 +5,12 @@ its responsibilities. Later authenticated inspection verified selected Cambridge
 TCG metadata and IAM roles; see the [IAM review](IAM_REVIEW_2026-09-17.md).
 That observation does not establish deployment/state ownership for every stack.
 
+The [18 September IAM role map](IAM_ROLE_MAP_2026-09-18.md) extends this source
+map with all 133 remaining roles, 50 direct CloudFormation ownership matches and
+selected configured consumers. The registry now includes ten source records,
+including business ecosystem, SaaS marketing and Cardforum security. The role
+map also retains unresolved owners; the registry is not the complete estate.
+
 ## What this repository owns
 
 `aws-infra` owns the shared account/project registry, local metadata collector,
@@ -36,7 +42,10 @@ RewardsPro legacy and v2 use the same account because they share a product name.
 
 Three RewardsPro region references coexist: old local account notes say
 `us-east-1`; legacy Terraform defaults to `eu-north-1`; v2 defaults to
-`eu-west-2`. Those are candidate places to inspect, not confirmed live placement.
+`eu-west-2`. The 18 September dependency evidence found the legacy execution
+role and eight Lambda function/version references in Cambridge TCG `eu-north-1`.
+Its project association has been corrected; the separate historical RewardsPro
+account and v2 deployment remain unverified. Other references are candidate places to inspect.
 Extra regions can be selected explicitly; the registry is not an all-region
 coverage claim.
 

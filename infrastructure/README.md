@@ -3,6 +3,12 @@
 This directory is reserved for shared stacks that are deliberately owned here.
 There is no root Terraform configuration to apply yet.
 
+The first [agent-access foundation](agent-access/README.md) is a reviewed,
+undeployed CloudFormation proposal for two scoped Identity Center permission
+sets and explicit assignments. It targets the existing Cambridge TCG instance
+and preserves all existing application roles. Its source would be owned here;
+no resources or state have been adopted by adding the proposal.
+
 Existing application definitions stay in their recorded repositories. Before
 adding a shared stack, record its purpose, AWS account and regions, state owner,
 deployment identity, dependencies, cost expectation, verification and rollback.

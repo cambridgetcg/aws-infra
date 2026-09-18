@@ -1,0 +1,31 @@
+# HUMAN/LAUNCHER PROFILE REFERENCE. Configured locally; SSO sign-in pending.
+# Portal URL supplied by the account owner on 18 September 2026.
+# The two AWSInfra permission sets must first be provisioned and assigned.
+# Keep this complete SSO configuration and its refresh cache OUT of agent runtimes.
+# Merge named entries after review; do not overwrite the current default profile.
+
+[sso-session cambridge-human]
+sso_start_url = https://ssoins-72237658457aa79e.portal.us-east-1.app.aws
+sso_region = us-east-1
+sso_registration_scopes = sso:account:access
+
+[profile cambridge-human-admin]
+sso_session = cambridge-human
+sso_account_id = 034362054546
+sso_role_name = AdministratorAccess
+region = us-east-1
+output = json
+
+[profile cambridge-agent-inventory]
+sso_session = cambridge-human
+sso_account_id = 034362054546
+sso_role_name = AWSInfraInventory
+region = us-east-1
+output = json
+
+[profile cambridge-iam-audit]
+sso_session = cambridge-human
+sso_account_id = 034362054546
+sso_role_name = AWSInfraIAMAudit
+region = us-east-1
+output = json

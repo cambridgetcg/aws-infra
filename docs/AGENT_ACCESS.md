@@ -8,6 +8,12 @@ quarantined two deployment roles on 17 September and retired all five Captioneer
 roles on 18 September. It did not implement the agent-access model here. The
 renewed human administrator login was verified again for that cleanup.
 
+**18 September rebuild:** the user chose to preserve current applications, use
+read-only agent access by default and grant temporary access to named projects
+for changes. The [role map](IAM_ROLE_MAP_2026-09-18.md) and
+[concrete access proposal](ACCESS_REBUILD.md) extend this review. The new
+permission sets, local profiles and isolated executor are not activated yet.
+
 ## What agents can reach today
 
 The local `default` profile uses `aws login`, region `us-east-1`, and currently
