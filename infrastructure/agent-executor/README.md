@@ -1,15 +1,20 @@
-# Isolated agent executor — prepared, inactive
+# Isolated agent executor — network verified, first task pending
 
 This bundle runs the **whole Codex CLI process** with one temporary AWS session
-inside a disposable container. It has not been built, started, or tested against
-AWS or a model. The interactive Codex app on Yu's current account remains outside
+inside a disposable container. The corrected executor image was verified on
+18 September at 20:44:54 UTC. All 28 network checks passed at 20:46:32 UTC; DNS
+observation and deadline cleanup passed at 20:53:23 UTC. The temporary controller
+expired at 20:55:25 UTC during subscription sign-in. The user subsequently
+reported browser approval; saved runtime authentication and the first isolated
+AWS/model task still require verification. The interactive Codex app on Yu's current account remains outside
 this boundary; selecting a narrower AWS profile cannot isolate that app from the
 human administrator cache.
 
 The [local Mac setup](setup-local.md) has a verified, locked standard account
 and a running separate Colima profile, with a local credential pipe and no host
-SSH server. Image builds, complete isolation checks and fresh subscription
-authentication remain prerequisites for activation.
+SSH server. Docker Engine 28.4.0 runs the verified images. See the
+[Mac agent flow](../../docs/MAC_AGENT_FLOW.md) for the operator workflow.
+Subscription verification and an actual scoped task remain before activation.
 
 ```mermaid
 flowchart LR
@@ -55,7 +60,8 @@ it is not available in this bundle.
    occupy the network. Pin its full container ID, immutable image ID, canonical
    host config path, and SHA-256 config fingerprint under `proxy_identity` in the
    manifest. These values are deliberately unresolved in the example.
-   Neither proxy image nor installed config has been verified here.
+   The proxy configuration, running metadata and current network behavior have
+   passed the credential-free checks recorded above.
 5. **Enforce and test network isolation before launching an agent.** An internal
    bridge and proxy environment variables alone do not establish isolation.
    The launcher checks isolated gateway mode, binds to the inspected network ID,
@@ -65,7 +71,8 @@ it is not available in this bundle.
    addresses, IPv6, and arbitrary DNS, including UDP/TCP to Docker's embedded
    `127.0.0.11` resolver. They must fail while approved HTTPS through the proxy
    succeeds. The launcher does not execute or attest these operational probes.
-   **Activation remains blocked until these checks pass.**
+   These network checks passed for the current image/configuration; repeat them
+   after changes. Subscription and task verification remain pending.
 
 The account's administrator can change policies or role assignments. This
 bundle isolates human administrator credentials from the task process; it cannot restrict the human
@@ -77,7 +84,7 @@ non-tmpfs mount must bind the reviewed config file read-only to that exact path.
 Optional tmpfs storage is limited to `/run`, `/tmp`, `/var/log/squid`,
 `/var/spool/squid`, and `/var/cache/squid`. Adapt and test the proxy image to this
 contract; the [pinned proxy recipe](proxy-runtime.md) supplies the reviewed image
-definition and startup procedure. It has not yet been built or started.
+definition and startup procedure. The current proxy is built, running and tested.
 The initial allowlist covers `us-east-1` service endpoints plus global IAM/S3
 and OpenAI; reads in other regions require a reviewed endpoint expansion even
 where IAM already permits them.
@@ -95,8 +102,18 @@ Docker daemon against task access; the operator remains trusted.
 
 The ARM64 Dockerfile pins Python 3.13.11 and AWS CLI 2.33.6 base-image digests and
 the Codex 0.154.0 package checksum. Pins were checked against upstream registry
-and release metadata; no layers were downloaded and no image was built here.
-Build-time version checks still need to verify binary layout and dependencies.
+and release metadata. Live checks verified Python 3.13.11, AWS CLI 2.33.6,
+Codex 0.154.0 and Squid 7.2. The Dockerfile explicitly copies both Python scripts
+as mode 0444, and UID 10001 successfully read, compiled and ran their `--help`.
+The IPv6 probe requires every interface disabled, no IPv6 addresses and no active
+IPv6 routes before treating `EADDRNOTAVAIL` as evidence of disabled IPv6.
+
+The verified executor image is
+`sha256:3e16293cbcf1e3e27f509303f843738901b1fe616e73a986c97390fe991aecb8`.
+Its probe source matches the repository SHA-256
+`aac3392c63566f8c1d6affa767be3fa53d8310a36e3a93d39258f53966db1282`.
+Detailed source, image and manifest-before/after receipts remain private; the
+original staged bundle and proxy were preserved during the image repairs.
 
 ```sh
 docker build --platform linux/arm64 -t aws-agent-executor:0.154.0 infrastructure/agent-executor
@@ -176,14 +193,19 @@ host/VM addresses and reviewed test destinations. The
 [probe source](probe_network.py) documents the exact constraints. The launcher
 checks the proxy, uses the same image/network/container controls as a task, and
 passes this config through stdin without a host mount or credential envelope.
-The image must be rebuilt with the probe included before this command can run.
+The verified local image includes the reviewed probe, and all 28 checks passed.
 
 The 28 runtime checks cover allowed HTTPS endpoints, explicit proxy denials,
 direct-path kernel/route evidence and unchanged network configuration. Timeouts
 or refused connections are inconclusive. Save the report privately. A successful
-network-check exit **does not mean activation is ready**: DNS escape observation,
-external expiry/cleanup and actual AWS identity/permission checks remain separate
-requirements. `run` does not automatically execute or attest these probes.
+network-check exit **does not mean activation is ready**: DNS observation,
+external cleanup and actual AWS identity/permission checks are separate. DNS
+observation now passed with zero drops/errors, real UDP controls and synthetic
+checksummed TCP packet controls captured on `eth0` before/after all six negative
+socket-query attempts; no negative nonce was observed. Synthetic TCP controls
+calibrate capture, not a successful TCP DNS transaction or universal escape
+prevention. A termination-resistant dummy was removed after 10.174 seconds.
+AWS expiry, abrupt launcher death and the actual isolated task remain untested. `run` does not automatically execute or attest these probes.
 
 ```sh
 python3 -B -m unittest discover -s infrastructure/agent-executor -p 'test_*.py' -v

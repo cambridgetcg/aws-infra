@@ -68,6 +68,23 @@ class ProbeNetworkTests(unittest.TestCase):
         self.assertEqual(probe.direct_result(None, "1.1.1.1", self.routes)[0], "failed")
         self.assertEqual(probe.direct_result(errno.EACCES, "1.1.1.1", self.routes)[0], "passed")
 
+    def test_ipv6_address_unavailable_needs_complete_disabled_namespace_evidence(self):
+        target = "2606:4700:4700::1111"
+        settings = {name: "1" for name in ("all", "default", "eth0", "lo")}
+        routes = dict(self.routes, ipv6_disable_settings=settings, ipv6_addresses=[])
+        self.assertEqual(probe.direct_result(errno.EADDRNOTAVAIL, target, routes)[0], "passed")
+        incomplete = [self.routes, dict(routes, ipv6_disabled=False),
+                      dict(routes, ipv6_disable_settings=dict(settings, eth0="0")),
+                      dict(routes, ipv6_disable_settings={"all": "1", "default": "1"}),
+                      dict(routes, ipv6_addresses=["configured-address"]),
+                      dict(routes, ipv6_routes=["::/0"])]
+        for value in incomplete:
+            with self.subTest(routes=value):
+                self.assertEqual(probe.direct_result(errno.EADDRNOTAVAIL, target, value)[0], "inconclusive")
+        self.assertEqual(probe.direct_result(errno.EADDRNOTAVAIL, "1.1.1.1", routes)[0], "inconclusive")
+        for code in (errno.ETIMEDOUT, errno.EHOSTUNREACH, errno.ECONNREFUSED):
+            self.assertEqual(probe.direct_result(code, target, routes)[0], "inconclusive")
+
     def test_timeout_without_errno_is_never_connection_success(self):
         client = MagicMock()
         client.__enter__.return_value.connect.side_effect = socket.timeout()
@@ -114,9 +131,21 @@ class ProbeNetworkTests(unittest.TestCase):
             "/proc/net/ipv6_route": "",
             "/proc/sys/net/ipv6/conf/all/disable_ipv6": "1\n",
             "/proc/sys/net/ipv6/conf/default/disable_ipv6": "1\n",
+            "/proc/sys/net/ipv6/conf/lo/disable_ipv6": "1\n",
+            "/proc/sys/net/ipv6/conf/eth0/disable_ipv6": "1\n",
+            "/proc/net/if_inet6": "",
         }
-        with patch.object(probe, "read_kernel", side_effect=files.__getitem__):
-            self.assertEqual(probe.route_snapshot(), self.routes)
+        interfaces = [Path(name) for name in ("all", "default", "eth0", "lo")]
+        with patch.object(probe, "read_kernel", side_effect=files.__getitem__), \
+                patch.object(probe.Path, "iterdir", return_value=interfaces):
+            expected = dict(self.routes, ipv6_disable_settings={p.name: "1" for p in interfaces},
+                            ipv6_addresses=[])
+            self.assertEqual(probe.route_snapshot(), expected)
+            files["/proc/sys/net/ipv6/conf/eth0/disable_ipv6"] = "0\n"
+            self.assertFalse(probe.route_snapshot()["ipv6_disabled"])
+            files["/proc/sys/net/ipv6/conf/eth0/disable_ipv6"] = "1\n"
+            files["/proc/net/if_inet6"] = "configured-address\n"
+            self.assertFalse(probe.route_snapshot()["ipv6_disabled"])
 
     def test_route_drift_and_failed_positive_control_prevent_pass(self):
         passing = ("passed", "fixture")

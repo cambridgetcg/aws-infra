@@ -14,25 +14,30 @@
 | Cloud changes | [Five Captioneer roles deleted](CAPTIONEER_CLEANUP.md), verified at 12:52:50 UTC on 18 September. Four managed-policy attachments and eight inline policies removed. All 133 other role identities, the shared GitHub provider and shared policy objects were preserved. |
 | Access rebuild | [Additive foundation](../infrastructure/agent-access/README.md) deployed and verified at 17:17:45 UTC: two permission sets and two assignments to the verified existing user. No directory user was created. User scope remains preserving applications, read-only default and temporary named-project access. |
 | Profile checks | At 17:18:32 UTC, both profiles passed exact-role identity and temporary one-hour session checks. Inventory: EC2 VPC read allowed, IAM role listing denied. IAM audit: IAM role listing allowed, EC2 VPC read denied. Private verification receipt ends `171832.669636Z-agent-profile-verification.json`. |
-| Executor | [Whole-agent runtime bundle](../infrastructure/agent-executor/README.md) has fixed access tiers, expiring credential handoff and credential-free network probes. The [dedicated locked account](../infrastructure/agent-executor/setup-local.md) passed live identity, file and home-access checks at 18:42 UTC; its separate VM started at 18:43 UTC. Image builds, complete isolation checks and fresh [Codex subscription authentication](../infrastructure/agent-executor/subscription-auth.md) remain pending; executor inactive. |
+| Executor | [Dedicated Mac runtime](MAC_AGENT_FLOW.md) and Squid proxy are running on Docker Engine 28.4.0. The corrected executor image was built and verified at 20:44:54 UTC. All 28 network checks passed at 20:46:32 UTC; DNS observation and deadline cleanup passed at 20:53:23 UTC. The temporary controller expired at 20:55:25 UTC during the subscription sign-in attempt. The user subsequently reported browser approval; saved runtime authentication and the first isolated AWS task still require verification. |
 
 The successful identity checks, inventory and retirement verification are dated
 observations. They do not establish an effective-permission audit of every resource or access
 to all historical accounts. Private evidence remains under ignored
 `inventory/local/`; reviewed summaries are committed.
 
-The macOS administrator-dialog attempt timed out at approximately 17:46 UTC;
-the owner confirmed no dialog appeared. A later Terminal handoff created
-`aws-agent` (UID 502) and staged its files, then stopped on an incorrect path in
-the final access check. That source bug is fixed. At 18:42 UTC a continuation
-verified the locked identity, 14 staged hashes and actual UID 502 dependency and
-home-access checks, then started only the dedicated VM. The final inspection
-stopped on incorrect Lima JSON field names in the checker. A corrected inspection
-and a finite, credential-free setup session are prepared; the new session awaits
-Terminal OS authentication. No subscription login or autonomous task has run there.
+The locked `aws-agent` account (UID 502), human-home access denial, dedicated VM
+mounts and forwarding configuration passed live checks. Both Python scripts are
+readable by container UID 10001; the final image contains the reviewed repository
+probe bytes. IPv6 evidence included disabled `all`, `default`, `eth0` and `lo`
+settings, no IPv6 addresses and no active IPv6 routes.
+
+DNS observation captured real UDP queries and synthetic, checksummed TCP DNS
+canaries on `eth0` before and after six negative socket-query attempts, with zero
+capture drops/errors and no negative nonce observed. The synthetic controls
+calibrate capture; they do not establish a successful TCP DNS transaction or
+universal future escape prevention. A termination-resistant dummy was removed
+in 10.174 seconds by the external deadline/cleanup path. This did not test AWS
+credential expiration or abrupt launcher death. Detailed build, network and
+cleanup receipts remain private in the dedicated runtime.
 
 Captioneer IAM retirement is complete, with no replacement roles. This did not
 delete application storage, databases or other workload resources, reconcile
 archived Terraform state, or change keys, MFA, runtime configuration or GitHub
-environments. Separating agent credentials from the human administrator session
-remains outstanding.
+environments. The isolated credential handoff and first model-driven AWS task
+still require live verification.

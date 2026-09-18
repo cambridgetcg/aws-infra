@@ -16,7 +16,9 @@ local profiles are authenticated. The two permission sets and assignments were
 deployed at 17:17 UTC; live one-hour credential, identity and allow/deny checks
 passed at 17:18 UTC. All 133 existing roles were preserved; two new SSO roles
 bring the total to 135. The [executor bundle](../infrastructure/agent-executor/README.md)
-remains inactive pending the dedicated Mac runtime and live isolation checks.
+now has a dedicated Mac runtime and verified images, 28 network checks,
+DNS observation and external deadline cleanup. Saved runtime subscription
+authentication and the first isolated AWS/model task still require verification.
 
 ## What agents can reach today
 

@@ -1,4 +1,4 @@
-# ARM64 only. Inputs are pinned by immutable upstream digests; no image was built here.
+# ARM64 only. Inputs are pinned by immutable upstream digests.
 FROM amazon/aws-cli:2.33.6@sha256:5b2cc3c760d978e00378e265ffa8d7a08dae1eec64c1047cfd601f49acef7d98 AS awscli
 FROM python:3.13.11-slim-bookworm@sha256:a4997dee8fbd74dd6464782b13f5696140f691ff7efc0098bb0b796fce883049
 
@@ -12,8 +12,8 @@ RUN mkdir /opt/codex && tar -xzf /tmp/codex.tar.gz -C /opt/codex && \
     useradd --uid 10001 --gid 10001 --home-dir /home/agent --create-home executor && \
     mkdir -p /work /run/session && chown executor:executor /work /run/session && \
     aws --version && codex --version
-COPY executor.py /opt/executor.py
-COPY probe_network.py /opt/probe_network.py
+COPY --chmod=0444 executor.py /opt/executor.py
+COPY --chmod=0444 probe_network.py /opt/probe_network.py
 ENV HOME=/home/agent PYTHONDONTWRITEBYTECODE=1
 USER 10001:10001
 WORKDIR /work

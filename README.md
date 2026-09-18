@@ -22,8 +22,9 @@ preserved during the rebuild. The deployed
 roles, bringing the total to 135. Both named profiles passed live identity and
 permission checks with one-hour sessions. The [agent flow](docs/ACCESS_REBUILD.md)
 defaults to read-only discovery; named-project changes need their own scoped
-identity. The dedicated local executor is being prepared and is not active yet.
-It will use your Codex subscription through a fresh runtime login.
+identity. The dedicated local executor has passed its network and cleanup
+checks. Saved runtime subscription authentication and the first isolated task
+still require verification. Follow the [Mac agent flow](docs/MAC_AGENT_FLOW.md).
 
 ## Start here
 
@@ -90,6 +91,7 @@ flowchart TB
 | [docs/AGENT_ACCESS.md](docs/AGENT_ACCESS.md) | Current credential boundary and proposed agent access tiers. |
 | [docs/IAM_ROLE_MAP_2026-09-18.md](docs/IAM_ROLE_MAP_2026-09-18.md) | Preserved 133-role baseline at 14:26 UTC, owners, consumers and gaps; two scoped roles were added later. |
 | [docs/ACCESS_REBUILD.md](docs/ACCESS_REBUILD.md) | Confirmed migration scope, profiles and isolated agent flow. |
+| [docs/MAC_AGENT_FLOW.md](docs/MAC_AGENT_FLOW.md) | How the Mac operator signs in, launches one scoped task and verifies its result. |
 | [docs/IAM_REVIEW_2026-09-17.md](docs/IAM_REVIEW_2026-09-17.md) | Verified IAM findings, priorities and review limits. |
 | [docs/CAPTIONEER_CLEANUP.md](docs/CAPTIONEER_CLEANUP.md) | Completed five-role retirement, dependency checks and verification. |
 | [policies/](policies/README.md) | Proposed inventory permissions and historical Captioneer policy documents. |
@@ -97,7 +99,7 @@ flowchart TB
 | [docs/STATUS.md](docs/STATUS.md) | Dated observations and outstanding setup. |
 | [infrastructure/](infrastructure/README.md) | Boundary for shared stacks adopted into this repository. |
 | [infrastructure/agent-access/](infrastructure/agent-access/README.md) | Deployed Identity Center foundation, verification record and profile example. |
-| [infrastructure/agent-executor/](infrastructure/agent-executor/README.md) | Prepared whole-agent container, temporary credential handoff and offline tests; inactive. |
+| [infrastructure/agent-executor/](infrastructure/agent-executor/README.md) | Verified container/network and prepared credential handoff; subscription and first task pending. |
 | `scripts/aws_inventory.py` | Account verification, offline plans and metadata collection. |
 | `tests/` | Offline tests for account selection, output and failure handling. |
 | `inventory/local/` | Generated private reports; never committed. |

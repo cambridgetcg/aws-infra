@@ -17,8 +17,9 @@ The operator-owned JSON config has exactly two keys:
            ipv6 globally routable. Targets must differ from the proxy.
 
 A successful connection FAILS isolation. Only an explicit kernel permission
-denial, or ENETUNREACH consistent with an inspected absence of a route, passes a
-direct-path check. Timeout, refusal and EHOSTUNREACH stay INCONCLUSIVE: they can
+denial, ENETUNREACH with no route, or IPv6 EADDRNOTAVAIL with every interface
+disabled and no IPv6 addresses/routes, passes a direct-path check.
+Timeout, refusal and EHOSTUNREACH stay INCONCLUSIVE: they can
 mean a nonexistent/stopped target. Use known-live before/after canaries to
 investigate those results; this harness does not certify such external evidence.
 
@@ -137,9 +138,17 @@ def route_snapshot():
         require(len(fields) == 10)
         if int(fields[8], 16) & 1:
             v6.append(str(ipaddress.IPv6Network((int(fields[0], 16), int(fields[1], 16)))))
-    disabled = all(read_kernel(f"/proc/sys/net/ipv6/conf/{name}/disable_ipv6").strip() == "1"
-                   for name in ("all", "default"))
-    return {"ipv4_routes": sorted(v4), "ipv6_routes": sorted(v6), "ipv6_disabled": disabled}
+    # Reading conf/all alone does not establish the state of each interface.
+    # https://kernel.org/doc/html/latest/networking/ip-sysctl.html
+    interfaces = sorted(path.name for path in Path("/proc/sys/net/ipv6/conf").iterdir())
+    require(3 <= len(interfaces) <= 128 and {"all", "default", "lo"} <= set(interfaces))
+    settings = {name: read_kernel(f"/proc/sys/net/ipv6/conf/{name}/disable_ipv6").strip()
+                for name in interfaces}
+    require(all(value in ("0", "1") for value in settings.values()))
+    addresses = read_kernel("/proc/net/if_inet6").splitlines()
+    disabled = all(value == "1" for value in settings.values()) and not addresses
+    return {"ipv4_routes": sorted(v4), "ipv6_routes": sorted(v6), "ipv6_disabled": disabled,
+            "ipv6_disable_settings": settings, "ipv6_addresses": addresses}
 
 
 def no_route(address, routes):
@@ -154,6 +163,13 @@ def direct_result(error_number, address, routes):
         return "passed", "kernel_permission_denial"
     if error_number == errno.ENETUNREACH and no_route(ipaddress.ip_address(address), routes):
         return "passed", "kernel_network_unreachable_and_no_route"
+    settings = routes.get("ipv6_disable_settings")
+    if (error_number == errno.EADDRNOTAVAIL and ipaddress.ip_address(address).version == 6
+            and routes.get("ipv6_disabled") is True and routes.get("ipv6_addresses") == []
+            and routes.get("ipv6_routes") == [] and isinstance(settings, dict)
+            and {"all", "default", "lo"} <= set(settings)
+            and all(value == "1" for value in settings.values())):
+        return "passed", "ipv6_disabled_on_every_interface_without_addresses_or_routes"
     return "inconclusive", "failure_does_not_establish_isolation"
 
 

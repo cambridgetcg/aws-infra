@@ -111,21 +111,32 @@ The user selected **this Mac** for the isolated runtime. On 18 September at
 18:42 UTC, the locked standard account and its 14 staged files passed exact
 identity, ownership and hash checks. A real UID 502 process could run the
 launcher dependencies and could neither read nor traverse the human home.
-The dedicated Colima VM started at 18:43 UTC. Its full isolation checks and
-container setup remain pending; VM startup does not activate agent access. The
+The dedicated Colima VM started at 18:43 UTC. Automatic TCP/UDP forwarding
+was disabled at 20:01 UTC, preserving its two private Unix socket forwards.
+The proxy is running, and the corrected executor image passed source, permission
+and version checks at 20:44:54 UTC. All 28 network checks passed at 20:46:32 UTC;
+DNS observation and external deadline cleanup passed at 20:53:23 UTC. The
 [executor bundle](../infrastructure/agent-executor/README.md) implements the
 trusted issuer, separate launcher and whole Codex process described here. It
 defaults to inventory, pins the generated role's account/name/immutable ID,
 rejects persistent credentials and ends before expiration. Its offline tests
 cover credential/identity rejection, archive handling, bounded I/O and container
-controls. The image and network have not been built or exercised; the bundle is
-prepared, not active. The successful host-profile checks do not activate it.
+controls. The dedicated proxy/network have now been exercised without
+credentials. Subscription device sign-in began at 20:53:45 UTC; the temporary
+controller expired at 20:55:25 UTC during that attempt. The user subsequently
+reported browser approval, but saved runtime authentication and the first
+isolated AWS/model task still require verification. Host-profile checks
+alone do not establish that end-to-end flow. See the [Mac agent flow](MAC_AGENT_FLOW.md).
 Named-project write access remains a per-project follow-up.
 
 Model access uses the owner's **Codex subscription**, with a fresh login in the
 dedicated runtime and private token-refresh persistence. The AWS issuer passes
 only AWS credentials. No API key or existing human Codex login is copied. See
 [subscription authentication](../infrastructure/agent-executor/subscription-auth.md).
+The DNS check used actual UDP controls and synthetic TCP packet canaries; it
+does not claim successful TCP DNS transactions. The deadline check removed a
+termination-resistant dummy in 10.174 seconds, without testing AWS expiry.
+Private runtime receipts preserve the exact image/source and network evidence.
 Subscription tokens have their own lifetime; the AWS session's one-hour expiry
 does not revoke the model login.
 

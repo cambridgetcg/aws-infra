@@ -1,31 +1,20 @@
 # Dedicated runtime on this Mac — review before activation
 
-The dedicated-account-and-VM setup on this Mac is authorized. The locked account
-and its staged files were verified at 18:42 UTC on 18 September, and its separate
-VM started at 18:43 UTC. Full VM inspection, container setup and runtime activation
-remain pending. Keep [the executor activation requirements](README.md).
+The locked `aws-agent` account (UID 502), private files, human-home access denial
+and dedicated Colima VM have passed live checks. The VM uses Docker Engine
+28.4.0; its mounts, disabled automatic TCP/UDP forwarding and private Unix
+sockets were verified. Preserve the human's existing accounts and Colima
+profiles. **Do not rerun account creation against this existing account.**
 
-The macOS administrator-dialog attempt timed out on 18 September; the owner
-confirmed no dialog appeared. A Terminal handoff then created `aws-agent`
-(UID 502) and staged its files, but stopped at the final access check because
-the script used nonexistent `/usr/bin/test`. The source now uses `/bin/test`
-and checks that executable before any account changes. **Do not rerun creation
-against this existing account.** The prepared continuation checks its exact
-private identity, locked status, file hashes and actual home-access denial
-before starting only the new Colima profile; it changes no existing account
-attributes or staged files. The later continuation verified the real UID 502,
-supplementary groups, denied read/traversal of the human home, all 14 source
-hashes and the launcher's actual Python dependencies before starting the VM.
-Its final metadata checker expected incorrectly capitalized Lima JSON keys and
-stopped; a corrected inspection is prepared. No AWS or model credentials have
-been passed to this runtime.
-
-Read-only inspection on 2026-09-18 found Docker CLI 29.1.5, Colima 0.9.1,
-Lima 2.0.3, and Python 3.14.3 already installed. No Docker server was reachable.
-The existing `default` and `lounge-test` Colima profiles were stopped; preserve
-both. Only the human account, `yournameisai` (UID 501, administrator), existed
-outside system accounts. Its home is mode 0700. `sudo -n true` required a human
-password. Those observations do not establish the state of a future runtime.
+The corrected executor image passed UID 10001 source readability, compilation,
+actual CLI help and version checks at 20:44:54 UTC on 18 September. All 28 network
+checks passed at 20:46:32 UTC. DNS observation and deadline cleanup passed at
+20:53:23 UTC. Subscription device sign-in started at 20:53:45 UTC; the temporary
+controller expired at 20:55:25 UTC during that attempt. The user subsequently
+reported browser approval. Saved runtime authentication and the first isolated
+task still require verification.
+See the [Mac agent flow](../../docs/MAC_AGENT_FLOW.md) and
+[executor evidence and limits](README.md). No AWS session has been handed to a task.
 
 Later inspection found the default Homebrew Python executable is mode 0700 and
 inaccessible to the runtime account. Use **`/opt/homebrew/bin/python3.13`** for
@@ -149,24 +138,13 @@ for the runtime in a private, runtime-owned credential directory. The task uses
 subscription authentication, with no API-key fallback. Do not copy human Codex
 auth caches or transfer keys found in the human process environment.
 
-For a local task, replace the README's SSH transport with a local pipe to the
-standard account. Authenticate sudo separately in the human terminal before
-the pipeline; `-n` deliberately fails rather than reading a password from the
-credential stream. Example, after paths and model auth are prepared:
-
-```sh
-/opt/homebrew/bin/python3.13 infrastructure/agent-executor/executor.py issue \
-  --manifest /private/operator/agent-manifest.json --tier inventory \
-  --handoff-fd 3 3>&1 1>/dev/null |
-sudo -n -u aws-agent -H /usr/bin/env -i \
-  HOME=/Users/aws-agent USER=aws-agent LOGNAME=aws-agent \
-  PATH=/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin \
-  /opt/homebrew/bin/python3.13 /Users/aws-agent/agent-runtime/bundle/executor.py run \
-  --manifest /Users/aws-agent/agent-runtime/tasks/manifest.json --tier inventory \
-  --model-auth /Users/aws-agent/agent-runtime/model-auth/auth.json \
-  --task /Users/aws-agent/agent-runtime/tasks/task.json \
-  --archive /Users/aws-agent/agent-runtime/tasks/input.tar
-```
+For local tasks, use the maintained [routine runner](run-task.py). The
+[Mac agent flow](../../docs/MAC_AGENT_FLOW.md) gives the actual paths, reviewed
+task/archive preparation and Terminal commands. The runner validates and stages
+inputs, checks matching runtime proofs, then waits for runtime readiness before
+issuing AWS access through a private pipe. Authenticate with `sudo -v` separately
+in that Terminal; the runner uses `sudo -n` and never reads a password from the
+credential stream.
 
 Use the actual private runtime authentication path created by the subscription
 guide. Its directory is 0700 and `auth.json` is 0600; neither belongs in Git or
@@ -179,9 +157,16 @@ verified runtime controls. After the task, the container is removed; credentials
 expire normally. Stop only profile `aws-agent` under its owning account when
 finished. Leave the human's existing profiles and applications unchanged.
 
-Remaining activation steps are complete VM inspection, actual image/proxy builds
-and isolation probes, and fresh task model authentication. A temporary foreground
-setup session is prepared with a fixed list of reviewed, credential-free actions
-and private receipts. It does not install a service or change sudo rules. Human
-OS authentication is still needed to enter that session; browser SSO login alone
-cannot satisfy that requirement.
+Remaining activation steps are fresh subscription sign-in/verification and the
+first read-only AWS task. The dedicated Docker context has been restored and
+verified. Current network evidence includes disabled IPv6 on every interface,
+no IPv6 addresses/routes, and tested allowed/denied proxy paths. DNS controls
+used real UDP queries and synthetic TCP packet canaries, with no negative nonce
+observed; this does not establish successful TCP DNS transactions. The external
+watchdog removed a termination-resistant dummy in 10.174 seconds.
+
+The finite foreground continuation uses fixed action names/accounts, private
+receipts and a reviewed source hash for each job. It keeps Terminal authorization
+alive for at most 45 minutes and installs no service or sudo policy. Any new
+device code is shown only in that Terminal. Human OS authentication and browser
+subscription authorization are separate steps.

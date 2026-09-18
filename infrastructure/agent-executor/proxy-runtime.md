@@ -1,10 +1,12 @@
-# Dedicated Squid proxy — prepared, not built or started
+# Dedicated Squid proxy — running and network verified
 
 [proxy.Dockerfile](proxy.Dockerfile) adapts Canonical's ARM64 Squid image to the
-executor's exact direct-process contract. This file records a build/run recipe;
-no image layers were pulled, no image was built, and no daemon was changed while
-preparing it. Complete configuration parsing, startup, isolation and subscription
-login checks on the dedicated runtime before handing an agent any credentials.
+executor's exact direct-process contract. The image built successfully on the
+dedicated runtime at 20:04 UTC on 18 September 2026. A no-network container
+verified Squid 7.2 and the image's user, entrypoint and volume configuration.
+Configuration parsing, proxy startup and all 28 network checks passed by
+20:46:32 UTC. DNS observation and deadline cleanup passed at 20:53:23 UTC.
+Fresh subscription verification and the first scoped task remain pending.
 
 ## Verified upstream inputs
 
@@ -12,7 +14,8 @@ Public Docker Registry manifests and the small image configuration blob were
 read on 18 September 2026; their SHA-256 values were checked locally. The selected
 image is Canonical's `ubuntu/squid:7.2-26.04_edge`, published for `linux/arm64/v8`
 on 17 September. It is an **edge-channel artifact**, pinned to immutable bytes;
-the pin does not turn it into a stable-channel or locally tested release.
+the pin does not turn it into a stable-channel release. Local testing covers
+build/version metadata and the current proxy's credential-free network behavior.
 [Canonical publisher and channels](https://hub.docker.com/r/ubuntu/squid)
 
 | Input | Digest |
@@ -160,6 +163,13 @@ Run [probe_network.py](probe_network.py) without credentials in the final agent
 image and exact task network configuration. Complete the remaining DNS escape,
 host/private-address and external expiry/cleanup checks. Then verify the fresh,
 separate subscription login through the approved endpoints and prove the
-expected AWS role/read boundaries. These checks have **not run** for this recipe.
+expected AWS role/read boundaries. The current recipe passed all 28 network
+checks, plus DNS capture with zero drops/errors and a 10.174-second dummy
+deadline/cleanup check. DNS controls were actual UDP queries and synthetic
+checksummed TCP DNS packets captured on `eth0` before/after the six negative
+queries; no negative nonce appeared. The TCP control calibrates capture and
+does not assert successful TCP DNS transactions or universal future escape
+prevention. Authentication and the first isolated AWS/model task remain pending.
+Exact image/configuration and detailed evidence remain in private receipts.
 Recreate the proxy and repeat the probes whenever its image or configuration
 changes; a matching file hash does not attest the process's effective policy.
