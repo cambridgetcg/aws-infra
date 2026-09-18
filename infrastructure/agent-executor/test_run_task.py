@@ -1,5 +1,5 @@
 """Offline routine-runner tests with synthetic inputs and mocked child processes."""
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 import copy
 import hashlib
 import importlib.util
@@ -52,10 +52,49 @@ class RoutineTaskTests(unittest.TestCase):
         self.task_path.write_bytes(self.task_raw)
         self.archive_path.write_bytes(self.archive)
         self.task_path.chmod(0o600); self.archive_path.chmod(0o600)
+        self.source_path = self.root / 'executor.py'
+        self.source_path.write_bytes(PATH.with_name('executor.py').read_bytes())
+        self.source_path.chmod(0o600)
+
+    @contextmanager
+    def mac_operator(self, directory_uid=501):
+        """Model the fixed Mac identity only for this test's owned files.
+
+        CI may use any real UID and checkout path. Preserve real modes, types,
+        links and inode identities; do not bypass the runner's ownership checks.
+        """
+        real_fstat, real_lstat = os.fstat, Path.lstat
+        files = (self.source_path, self.task_path, self.archive_path, self.root / 'manifest.json')
+        identities = set()
+        for path in files:
+            if path.exists():
+                metadata = path.stat()
+                self.assertEqual(metadata.st_uid, os.getuid())
+                identities.add((metadata.st_dev, metadata.st_ino))
+
+        def with_uid(metadata, uid):
+            fields = list(metadata)
+            fields[4] = uid
+            return os.stat_result(fields)
+
+        def fstat(descriptor):
+            metadata = real_fstat(descriptor)
+            return (with_uid(metadata, 501) if (metadata.st_dev, metadata.st_ino) in identities
+                    else metadata)
+
+        def lstat(path, *args, **kwargs):
+            metadata = real_lstat(path, *args, **kwargs)
+            return with_uid(metadata, directory_uid) if path == self.root else metadata
+
+        with patch.object(runner, 'SOURCE', str(self.source_path)), \
+                patch.object(runner.os, 'getuid', return_value=501), \
+                patch.object(runner.os, 'geteuid', return_value=501), \
+                patch.object(runner.os, 'fstat', side_effect=fstat), \
+                patch.object(Path, 'lstat', lstat):
+            yield
 
     def validation(self, tier='inventory'):
-        with patch.object(runner.os, 'getuid', return_value=501), \
-                patch.object(runner.os, 'geteuid', return_value=501):
+        with self.mac_operator():
             return runner.validate_inputs(self.task_path, self.archive_path, tier)
 
     def test_offline_validation_reads_only_source_and_explicit_inputs(self):
@@ -66,7 +105,7 @@ class RoutineTaskTests(unittest.TestCase):
             read_paths.append(str(path))
             return original(path, *args, **kwargs)
 
-        with patch.object(runner, 'owned_bytes', side_effect=read), patch('sys.stdout', output), \
+        with self.mac_operator(), patch.object(runner, 'owned_bytes', side_effect=read), patch('sys.stdout', output), \
                 patch.object(runner.signal, 'signal'), \
                 patch.object(runner.subprocess, 'Popen', side_effect=AssertionError('unexpected process')):
             result = runner.main(['--task', str(self.task_path), '--archive', str(self.archive_path)])
@@ -74,7 +113,7 @@ class RoutineTaskTests(unittest.TestCase):
         value = json.loads(output.getvalue())
         self.assertEqual((value['mode'], value['tier'], value['profile']),
                          ('offline_validated', 'inventory', 'cambridge-agent-inventory'))
-        self.assertEqual(set(read_paths), {runner.SOURCE, str(self.task_path), str(self.archive_path)})
+        self.assertEqual(set(read_paths), {str(self.source_path), str(self.task_path), str(self.archive_path)})
         self.assertNotIn(self.task['prompt'], output.getvalue())
 
     def test_exact_schema_and_forbidden_archive_paths_rejected(self):
@@ -104,6 +143,25 @@ class RoutineTaskTests(unittest.TestCase):
         hard.unlink()
         with self.assertRaisesRegex(RuntimeError, 'input_too_large'):
             runner.owned_bytes(self.archive_path, os.getuid(), 4)
+
+    def test_file_owner_check_rejects_a_different_uid(self):
+        # Exercise the production check against a real file without the Mac
+        # metadata fixture; this remains meaningful on both macOS and Linux.
+        with self.assertRaisesRegex(RuntimeError, 'unsafe_input_file'):
+            runner.owned_bytes(self.archive_path, os.getuid() + 1, runner.MAX_ARCHIVE)
+
+    def test_simulated_linux_file_owner_does_not_match_mac_operator(self):
+        original = os.fstat
+
+        def linux_owner(descriptor):
+            fields = list(original(descriptor))
+            fields[4] = 1001
+            return os.stat_result(fields)
+
+        with patch.object(runner.os, 'fstat', side_effect=linux_owner):
+            self.assertEqual(runner.owned_bytes(self.archive_path, 1001, runner.MAX_ARCHIVE), self.archive)
+            with self.assertRaisesRegex(RuntimeError, 'unsafe_input_file'):
+                runner.owned_bytes(self.archive_path, 501, runner.MAX_ARCHIVE)
 
     def staging(self, metadata=None):
         namespace = {'checked': lambda value: runner.require(value, 'invalid frame'),
@@ -164,7 +222,8 @@ class RoutineTaskTests(unittest.TestCase):
             namespace['remove_staging'](str(stage), descriptor, (info.st_dev, info.st_ino), files)
         self.assertEqual(original.read_text(), 'not owned by this submission')
 
-    def fixture(self, tier='inventory', bad_ready=False, issuer_code=0, result_tier=None, early_ready=False):
+    def fixture(self, tier='inventory', bad_ready=False, issuer_code=0, result_tier=None,
+                early_ready=False, directory_uid=501):
         # Larger than a pipe capacity: the parent must multiplex partial writes
         # with the target reader instead of blocking before its deadline loop.
         archive = archive_bytes(data=b'x' * 262144)
@@ -264,9 +323,8 @@ class RoutineTaskTests(unittest.TestCase):
 
         stack = ExitStack()
         for context in (
+            self.mac_operator(directory_uid=directory_uid),
             patch.object(runner, 'OPERATOR_MANIFEST', str(manifest)),
-            patch.object(runner.os, 'getuid', return_value=501),
-            patch.object(runner.os, 'geteuid', return_value=501),
             patch.object(runner.os, 'open', side_effect=fake_open),
             patch.object(runner.os, 'isatty', return_value=True),
             patch.dict(os.environ, {'HOME': runner.HUMAN_HOME}, clear=True),
@@ -318,6 +376,12 @@ class RoutineTaskTests(unittest.TestCase):
         with patch.dict(os.environ, {'AWS_PROFILE': 'default'}):
             with self.assertRaisesRegex(RuntimeError, 'wrong_aws_profile'):
                 runner.live_task(self.task, frame, metadata, 'inventory')
+        self.assertEqual(calls, [])
+
+    def test_manifest_directory_owner_mismatch_never_starts_child(self):
+        calls, frame, metadata = self.fixture(directory_uid=1001)
+        with self.assertRaisesRegex(RuntimeError, 'unsafe_manifest_directory'):
+            runner.live_task(self.task, frame, metadata, 'inventory')
         self.assertEqual(calls, [])
 
     def proof_fixture(self):
