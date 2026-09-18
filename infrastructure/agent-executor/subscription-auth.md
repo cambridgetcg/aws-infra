@@ -22,7 +22,7 @@ umask 077
 mkdir -p /Users/aws-agent/agent-runtime/model-auth
 chmod 700 /Users/aws-agent/agent-runtime/model-auth
 env -i HOME=/Users/aws-agent PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin \
-  python3 -I -B /Users/aws-agent/agent-runtime/bundle/login-subscription.py \
+  /opt/homebrew/bin/python3.13 -I -B /Users/aws-agent/agent-runtime/bundle/login-subscription.py \
   --login --manifest /Users/aws-agent/agent-runtime/tasks/manifest.json \
   --network-evidence /Users/aws-agent/agent-runtime/tasks/network-probe.json \
   --output-auth /Users/aws-agent/agent-runtime/model-auth/auth.json

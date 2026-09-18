@@ -1,12 +1,18 @@
 # Dedicated runtime on this Mac — review before activation
 
-The dedicated-account-and-VM setup on this Mac is authorized. This runbook and
-bootstrap are prepared; they do not establish that an account or runtime has
-been activated. Keep [the executor activation requirements](README.md).
+The dedicated-account-and-VM setup on this Mac is authorized. The account has
+been created and files staged; VM startup and runtime activation are still
+pending. Keep [the executor activation requirements](README.md).
 
-The macOS administrator-dialog attempt timed out on 18 September. A subsequent
-read-only preflight confirmed the target account and home were still absent.
-Creation requires a fresh OS authorization or the exact Terminal command below.
+The macOS administrator-dialog attempt timed out on 18 September; the owner
+confirmed no dialog appeared. A Terminal handoff then created `aws-agent`
+(UID 502) and staged its files, but stopped at the final access check because
+the script used nonexistent `/usr/bin/test`. The source now uses `/bin/test`
+and checks that executable before any account changes. **Do not rerun creation
+against this existing account.** The prepared continuation checks its exact
+private identity, locked status, file hashes and actual home-access denial
+before starting only the new Colima profile; it changes no existing account
+attributes or staged files.
 
 Read-only inspection on 2026-09-18 found Docker CLI 29.1.5, Colima 0.9.1,
 Lima 2.0.3, and Python 3.14.3 already installed. No Docker server was reachable.
@@ -14,6 +20,12 @@ The existing `default` and `lounge-test` Colima profiles were stopped; preserve
 both. Only the human account, `yournameisai` (UID 501, administrator), existed
 outside system accounts. Its home is mode 0700. `sudo -n true` required a human
 password. Those observations do not establish the state of a future runtime.
+
+Later inspection found the default Homebrew Python executable is mode 0700 and
+inaccessible to the runtime account. Use **`/opt/homebrew/bin/python3.13`** for
+local runtime commands: it is Python 3.13.11 with accessible ancestry and passes
+the executor tests. No interpreter permissions were broadened. System Python
+3.9 rejects nanosecond authentication timestamps and is not a substitute.
 
 The smallest local path is a new standard account `aws-agent`, its own Colima
 profile `aws-agent`, and the whole task agent inside the guarded container.
@@ -24,7 +36,7 @@ access; this setup does not reconfigure them.
 
 ## Account and files
 
-1. Review and run [bootstrap-local.py](bootstrap-local.py) in plan mode, then
+1. **For a new account only**, review and run [bootstrap-local.py](bootstrap-local.py) in plan mode, then
    authorize its exact apply command through the human's normal macOS privilege
    prompt. It creates a **locked, non-administrator runtime identity**, not an
    interactive login: `AuthenticationAuthority=;DisabledUser;`, shell
@@ -36,8 +48,8 @@ access; this setup does not reconfigure them.
    It does not start a VM, change sudo rules, enable remote access, or set tokens.
 
    ```sh
-   /opt/homebrew/bin/python3 -I -S -B infrastructure/agent-executor/bootstrap-local.py --plan
-   sudo /opt/homebrew/bin/python3 -I -S -B infrastructure/agent-executor/bootstrap-local.py --apply
+   /opt/homebrew/bin/python3.13 -I -S -B infrastructure/agent-executor/bootstrap-local.py --plan
+   sudo /opt/homebrew/bin/python3.13 -I -S -B infrastructure/agent-executor/bootstrap-local.py --apply
    ```
 
    The human supplies OS authentication to macOS/sudo, never to chat or a command
@@ -133,13 +145,13 @@ the pipeline; `-n` deliberately fails rather than reading a password from the
 credential stream. Example, after paths and model auth are prepared:
 
 ```sh
-/opt/homebrew/bin/python3 infrastructure/agent-executor/executor.py issue \
+/opt/homebrew/bin/python3.13 infrastructure/agent-executor/executor.py issue \
   --manifest /private/operator/agent-manifest.json --tier inventory \
   --handoff-fd 3 3>&1 1>/dev/null |
 sudo -n -u aws-agent -H /usr/bin/env -i \
   HOME=/Users/aws-agent USER=aws-agent LOGNAME=aws-agent \
   PATH=/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin \
-  /opt/homebrew/bin/python3 /Users/aws-agent/agent-runtime/bundle/executor.py run \
+  /opt/homebrew/bin/python3.13 /Users/aws-agent/agent-runtime/bundle/executor.py run \
   --manifest /Users/aws-agent/agent-runtime/tasks/manifest.json --tier inventory \
   --model-auth /Users/aws-agent/agent-runtime/model-auth/auth.json \
   --task /Users/aws-agent/agent-runtime/tasks/task.json \
@@ -157,7 +169,7 @@ verified runtime controls. After the task, the container is removed; credentials
 expire normally. Stop only profile `aws-agent` under its owning account when
 finished. Leave the human's existing profiles and applications unchanged.
 
-Remaining activation steps are human-authenticated locked-account creation,
-actual image/proxy build and isolation probes, and verified task model
-authentication. The account/VM bootstrap requires human OS authentication;
+Remaining activation steps are verification of the existing account and staged
+files, VM startup, actual image/proxy build and isolation probes, and verified
+task model authentication. The local continuation requires human OS authentication;
 browser SSO login alone cannot satisfy that requirement.

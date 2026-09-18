@@ -21,10 +21,12 @@ observations. They do not establish an effective-permission audit of every resou
 to all historical accounts. Private evidence remains under ignored
 `inventory/local/`; reviewed summaries are committed.
 
-The macOS administrator-dialog attempt timed out at approximately 17:46 UTC.
-A fresh bootstrap preflight confirmed no `aws-agent` account or home existed.
-Local runtime creation awaits OS authentication; no subscription login or
-autonomous task has run in that runtime.
+The macOS administrator-dialog attempt timed out at approximately 17:46 UTC;
+the owner confirmed no dialog appeared. A later Terminal handoff created
+`aws-agent` (UID 502) and staged its files, then stopped on an incorrect path in
+the final access check. That source bug is fixed. A continuation now verifies
+the existing identity and staged hashes before VM startup; it awaits Terminal
+OS authentication. No subscription login or autonomous task has run there.
 
 Captioneer IAM retirement is complete, with no replacement roles. This did not
 delete application storage, databases or other workload resources, reconcile

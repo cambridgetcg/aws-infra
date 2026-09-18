@@ -17,6 +17,28 @@ spec.loader.exec_module(bootstrap)
 
 
 class BootstrapTests(unittest.TestCase):
+    def test_missing_access_probe_rejected_before_metadata_or_account_mutation(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(bootstrap, "ACCESS_PROBE", Path(directory) / "missing-test"), \
+             patch.object(bootstrap.sys, "platform", "darwin"), \
+             patch.object(bootstrap, "record") as metadata, \
+             patch.object(bootstrap, "NativeDirectory") as native:
+            with self.assertRaisesRegex(bootstrap.Rejected, "access probe is unavailable"):
+                bootstrap.preflight()
+            metadata.assert_not_called()
+            native.assert_not_called()
+
+    def test_nonexecutable_access_probe_rejected_before_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            probe = Path(directory) / "test"
+            probe.write_text("not executable")
+            probe.chmod(0o600)
+            with patch.object(bootstrap, "ACCESS_PROBE", probe), \
+                 patch.object(bootstrap.sys, "platform", "darwin"), patch.object(bootstrap, "record") as metadata:
+                with self.assertRaisesRegex(bootstrap.Rejected, "access probe is unavailable"):
+                    bootstrap.preflight()
+                metadata.assert_not_called()
+
     def test_account_selection_rejects_existing_and_skips_used_uids(self):
         with self.assertRaises(bootstrap.Rejected):
             bootstrap.choose_uid({"aws-agent": 502})

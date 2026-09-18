@@ -29,6 +29,7 @@ ACCOUNT = "aws-agent"
 ACCOUNT_HOME = Path("/Users/aws-agent")
 SOURCE = HUMAN_HOME / "Desktop/aws-infra/infrastructure/agent-executor"
 LOCK = Path("/private/var/run/aws-infra-agent-bootstrap.lock")
+ACCESS_PROBE = Path("/bin/test")
 FILES = {
     "Dockerfile": "agent-runtime/bundle/Dockerfile",
     "proxy.Dockerfile": "agent-runtime/bundle/proxy.Dockerfile",
@@ -102,6 +103,7 @@ def reviewed_bytes(path):
 
 def preflight():
     require(sys.platform == "darwin", "This bootstrap is only for the reviewed Mac")
+    require(ACCESS_PROBE.is_file() and os.access(ACCESS_PROBE, os.X_OK), "Required macOS access probe is unavailable")
     validate_human(record(HUMAN, ["UniqueID", "NFSHomeDirectory", "RecordName"]), HUMAN_HOME.lstat())
     users = {}
     for line in command(["/usr/bin/dscl", ".", "-list", "/Users", "UniqueID"]).decode().splitlines():
@@ -249,20 +251,26 @@ def apply():
         guid = str(uuid.uuid4()).upper()
         native = NativeDirectory()
         os.umask(0o077)
+        phase = "home creation"
         try:
             # mkdir is exclusive: another account's existing home is never reused.
             ACCOUNT_HOME.mkdir(mode=0o700)
+            phase = "identity creation"
             native.create(uid, guid)
+            phase = "initial identity verification"
             verify_account(uid, guid)
+            phase = "file staging"
             stage(uid, content)
+            phase = "staged identity verification"
             verify_account(uid, guid)
-            result = subprocess.run(["/usr/bin/test", "-x", str(HUMAN_HOME)], user=uid, group=20,
-                                    extra_groups=[], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            phase = "human-home access check"
+            result = subprocess.run([str(ACCESS_PROBE), "-x", str(HUMAN_HOME)], user=uid, group=20,
+                                    extra_groups=os.getgrouplist(ACCOUNT, 20), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                     stderr=subprocess.DEVNULL, env={}, timeout=10)
             require(result.returncode == 1, "Runtime must not be able to traverse the human home")
-        except Exception:
+        except Exception as error:
             # Do not delete records or homes on failure; never turn this into a broad cleanup tool.
-            raise Rejected("Bootstrap incomplete; inspect the locked identity/private home before any retry. No runtime was started.") from None
+            raise Rejected(f"Bootstrap incomplete during {phase} ({type(error).__name__}); inspect the locked identity/private home before any retry. No runtime was started.") from None
         finally:
             native.close()
     output = plan(uid, content)
