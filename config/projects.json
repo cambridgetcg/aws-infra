@@ -80,8 +80,8 @@
       "regions": [
         "us-east-1"
       ],
-      "mechanism": "Archived bootstrap and separate Terraform definitions; five live roles verified. Two globally trusted GitHub roles quarantined 2026-09-17. No direct consumers found across 17 enabled regions; deletion/rebuild and state ownership remain pending. See docs/CAPTIONEER_CLEANUP.md.",
-      "status": "live-iam-contained-cleanup-pending",
+      "mechanism": "Retirement and deletion of five unused IAM roles authorized 2026-09-18; no rebuild. Two exposed roles last verified quarantined 2026-09-17. Removal awaits renewed login and refreshed dependency checks. Archived source/state must not recreate the roles. See docs/CAPTIONEER_CLEANUP.md.",
+      "status": "retirement-authorized-authentication-pending",
       "source_commit": "019d3619f76dc4fce58f38d997421ff3caf5c27a"
     }
   ]

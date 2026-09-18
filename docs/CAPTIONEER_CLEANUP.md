@@ -1,9 +1,15 @@
-# Captioneer IAM cleanup — 17 September 2026
+# Captioneer IAM cleanup — 17–18 September 2026
 
-**The two globally trusted GitHub roles are quarantined. No roles were deleted.**
-This containment follows the request to handle Captioneer's exposed access and
-consider deleting its roles to start again. The remaining choice is whether to
-retire Captioneer entirely or rebuild its deployment access.
+**Retirement authorized on 18 September: remove the five unused Captioneer IAM
+roles, with no replacement roles.** The browser login expired overnight; final
+dependency checks and deletion are pending renewed authentication. No roles have
+been deleted. The two globally trusted GitHub roles were last verified in
+quarantine on 17 September.
+
+The earlier containment and dependency evidence is preserved below. The scope
+is Captioneer's five IAM roles and their attachments/inline policies; it does
+not include shared identity providers, other projects' roles, or application
+storage, databases and other workload resources.
 
 ## Current state
 
@@ -83,9 +89,11 @@ Bounded CloudTrail resource-name lookups for the three GitHub role names returne
 no events in `us-east-1` over the previous seven days; that is not an all-region
 assumption history or an incident investigation.
 
-## Retirement versus rebuild
+## Approved retirement process
 
-If Captioneer is retired, the five names above are the candidate deletion scope.
+On 18 September, the user explicitly chose retirement and removal of the five
+unused roles. The five names above are the approved deletion scope; no further
+deletion approval or replacement design is needed.
 Do not interpret “all roles” as all 138 roles in the AWS account. Resolve outside
 references and keep containment until affected sessions expire before removing
 the inline deny for deletion. The current one-hour role maximum alone does not
@@ -97,12 +105,13 @@ Keep the quarantine deny until the final deletion stage; verify each targeted
 role returns `NoSuchEntity` afterward.
 [AWS DeleteRole requirements](https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeleteRole.html).
 
-If Captioneer will return, define its intended runtime, deployment workflow,
+If Captioneer is revived in a future task, define its intended runtime, deployment workflow,
 resource scope and source/state owner first. Create only the required identities:
 runtime roles for application needs, a narrowly trusted repository/environment/
 branch deployment role, and a separately controlled infrastructure change role
 only if needed. An administrator role open to GitHub is not a starting template.
-Preserve the two ECS role definitions until the runtime decision is made.
+The saved private snapshots retain the old definitions; retirement does not
+authorize recreating either ECS role.
 
 Recreating the same name creates a new IAM principal ID. Existing policies using
 the former principal ID may stop working, while conditions matching an ARN string
