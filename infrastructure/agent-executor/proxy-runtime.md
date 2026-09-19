@@ -4,9 +4,12 @@
 executor's exact direct-process contract. The image built successfully on the
 dedicated runtime at 20:04 UTC on 18 September 2026. A no-network container
 verified Squid 7.2 and the image's user, entrypoint and volume configuration.
-Configuration parsing, proxy startup and all 28 network checks passed by
-20:46:32 UTC. DNS observation and deadline cleanup passed at 20:53:23 UTC.
-Fresh subscription verification and the first scoped task remain pending.
+Configuration parsing and proxy startup passed on 18 September. Refreshed
+28-check network and DNS/cleanup verification passed at 08:53:42 UTC on
+19 September against the same pinned runtime. Separate subscription login
+completed at 08:55:07 UTC and the routine CLI completed its first inventory task
+at 08:55:47.967 UTC. Post-task inspection confirmed the sole pinned proxy and no
+task containers. See [dated results and limits](../../docs/STATUS.md).
 
 ## Verified upstream inputs
 
@@ -159,17 +162,19 @@ four allowed tmpfs mounts. A `VOLUME`/anonymous mount or extra bind fails the
 launcher contract. Record the full container ID and image ID in the private
 runtime manifest, and use its current internal IPv4 address for the agent.
 
-Run [probe_network.py](probe_network.py) without credentials in the final agent
-image and exact task network configuration. Complete the remaining DNS escape,
-host/private-address and external expiry/cleanup checks. Then verify the fresh,
-separate subscription login through the approved endpoints and prove the
-expected AWS role/read boundaries. The current recipe passed all 28 network
-checks, plus DNS capture with zero drops/errors and a 10.174-second dummy
-deadline/cleanup check. DNS controls were actual UDP queries and synthetic
+For a new or changed runtime, run [probe_network.py](probe_network.py) without
+credentials in the final agent image and exact task network configuration.
+Check DNS escape, host/private-address paths and external deadline cleanup, then
+verify separate subscription login and the expected AWS role/read boundaries.
+The current recipe passed all 28 network checks plus DNS/cleanup verification,
+refreshed on 19 September. The earlier dummy deadline/cleanup check took
+10.174 seconds on 18 September. DNS controls were actual UDP queries and synthetic
 checksummed TCP DNS packets captured on `eth0` before/after the six negative
 queries; no negative nonce appeared. The TCP control calibrates capture and
 does not assert successful TCP DNS transactions or universal future escape
-prevention. Authentication and the first isolated AWS/model task remain pending.
+prevention. Separate subscription authentication and the first isolated inventory
+task passed on 19 September. AWS credential expiry and abrupt launcher death
+were not exercised; the isolated IAM-audit task remains untested.
 Exact image/configuration and detailed evidence remain in private receipts.
 Recreate the proxy and repeat the probes whenever its image or configuration
 changes; a matching file hash does not attest the process's effective policy.

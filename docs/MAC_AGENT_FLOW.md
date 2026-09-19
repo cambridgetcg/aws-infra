@@ -1,13 +1,20 @@
 # Run AWS tasks on this Mac
 
-The [smoke runner](../infrastructure/agent-executor/run-inventory-smoke.py)
-performs one fixed inventory verification. The
-[routine runner](../infrastructure/agent-executor/run-task.py) submits reviewed
-task JSON and a small input archive through the same separate `aws-agent` runtime.
-**The isolated smoke check is still pending.** Account, VM and image checks do
-not establish that subscription authentication and the full task work together.
-Complete the [runtime checks](../infrastructure/agent-executor/setup-local.md)
-and fresh runtime subscription login before using `--run`.
+The [routine runner](../infrastructure/agent-executor/run-task.py) submits reviewed
+task JSON and a small input archive through the separate `aws-agent` runtime.
+**Its first inventory task passed on 19 September 2026 at 08:55:47.967 UTC
+(09:55:47.967 BST).** Refreshed network/DNS checks, a fresh separate subscription
+login and post-task cleanup all passed. The temporary setup controller closed
+at 08:56:42.783 UTC; its Terminal window can be closed. See
+[the dated evidence and limits](STATUS.md).
+
+The verified task used `gpt-5.6-luna`. The executor confirmed the pinned Cambridge
+inventory role; the model reported four VPCs, expected IAM `AccessDenied` and
+overall success. Model-written results are summaries to assess, not independent
+attestation of every command. The separate
+[fixed smoke helper](../infrastructure/agent-executor/run-inventory-smoke.py)
+has offline tests but was not the live entrypoint. An isolated IAM-audit task
+has not yet been live-tested.
 
 The human issues a short AWS session from `cambridge-agent-inventory` by default; the
 runtime uses its own ChatGPT subscription login. The runner waits for the
@@ -17,12 +24,11 @@ The human runner never reads the handoff or runtime model-authentication file.
 
 ## Paths and ownership
 
-| Purpose | Fixed path |
+| Purpose | Location |
 | --- | --- |
 | Human AWS identity manifest | `/Users/yournameisai/.aws/agent-runtime/manifest.json` |
 | Runtime image, network and role manifest | `/Users/aws-agent/agent-runtime/tasks/manifest.json` |
-| Reviewed smoke task | `/Users/aws-agent/agent-runtime/tasks/inventory-smoke.json` |
-| README-only task archive | `/Users/aws-agent/agent-runtime/tasks/input.tar` |
+| Routine task's temporary inputs | `/Users/aws-agent/agent-runtime/tasks/submitted-*/task.json` and `input.tar` |
 | Separate runtime ChatGPT login | `/Users/aws-agent/agent-runtime/model-auth/auth.json` |
 | Staged runtime launcher | `/Users/aws-agent/agent-runtime/bundle/executor.py` |
 
@@ -38,12 +44,11 @@ when the task finishes or unwinds. It does not retain input archives as history.
 
 ## Invoke from the human Terminal
 
-Run these commands in your own Terminal as the human account. First, inspect
-the runner's offline plan; it does not authenticate or start a task:
+Run these commands in your own Terminal as the human account. Start in the
+repository, then prepare and validate the task inputs shown in the next section:
 
 ```sh
 cd /Users/yournameisai/Desktop/aws-infra
-/opt/homebrew/bin/python3.13 -I -S -B infrastructure/agent-executor/run-inventory-smoke.py
 ```
 
 If the scoped AWS SSO login has expired, renew that profile and complete its
@@ -53,24 +58,10 @@ browser authorization while the CLI is waiting:
 aws sso login --profile cambridge-agent-inventory --use-device-code
 ```
 
-After the runtime's network and subscription checks pass, authenticate to macOS
-in that same Terminal, then run the smoke check:
-
-```sh
-sudo -v
-/opt/homebrew/bin/python3.13 -I -S -B infrastructure/agent-executor/run-inventory-smoke.py --run
-```
-
-`sudo -v` is the separate macOS password prompt. The runner uses `sudo -n` and
+The `sudo -v` step below is the separate macOS password prompt. The runner uses `sudo -n` and
 never prompts or reads a password from the credential pipe. Keep the Terminal
 open. It allows 600 seconds for the task and up to 35 seconds for cleanup.
 An unavailable scoped profile fails; there is no administrator-profile fallback.
-
-The fixed task uses `gpt-5.6-luna` and checks caller identity, counts VPCs in
-`us-east-1`, and expects IAM role listing to return `AccessDenied`. Success means
-the command exits zero **and** its returned task result reports these expected
-outcomes. The returned model summary is not independent attestation of every
-command; the pinned executor separately verifies the AWS role identity.
 
 The runner checks the reviewed executor SHA-256 on both sides. A source change
 stops the task until its new version is reviewed and staged with updated pins.
@@ -79,8 +70,10 @@ default Homebrew interpreter or broaden its permissions.
 
 ## Submit a routine task
 
-Use this after the smoke check has passed. Start with a small, reviewed input
-bundle. This example creates a README-only archive and an inventory task:
+The dedicated runtime is verified for inventory tasks. Preserve its
+[runtime checks](../infrastructure/agent-executor/setup-local.md) and valid
+subscription login. Start with a small, reviewed input bundle. This example
+creates a README-only archive and an inventory task:
 
 ```sh
 TASK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/aws-agent-task.XXXXXX")"
@@ -152,7 +145,7 @@ the private runtime account. The prepared Mac login flow also checks fresh,
 matching network and DNS/cleanup receipts. It does not copy the human's Codex
 cache, use an API key, or supply AWS credentials during login.
 
-A successful task privately saves refreshed model authentication for the next
+A successful task privately saves returned model authentication for the next
 serialized task. AWS sessions expire separately; their expiry does not revoke
 the ChatGPT login. After an interrupted task or failed authentication round trip,
 inspect cleanup and perform a fresh runtime login. Never restore an older token
@@ -166,6 +159,8 @@ handling of the previous invalidated file before reusing this fixed path.
 The smoke runner accepts only its fixed inventory verification. The routine
 runner provides reviewed task submission for inventory and explicit IAM audit
 using the [general executor](../infrastructure/agent-executor/README.md).
+The inventory flow is live-verified; IAM audit has profile-level allow/deny
+checks and offline runner tests, but no isolated model-task verification yet.
 Neither runner changes AWS permissions or provisions infrastructure. Automated
 reauthentication recovery remains separate work; current recovery uses the
 reviewed subscription-login flow described above.

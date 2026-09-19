@@ -1,4 +1,4 @@
-# Dedicated runtime on this Mac — review before activation
+# Dedicated runtime on this Mac — inventory flow verified
 
 The locked `aws-agent` account (UID 502), private files, human-home access denial
 and dedicated Colima VM have passed live checks. The VM uses Docker Engine
@@ -7,14 +7,16 @@ sockets were verified. Preserve the human's existing accounts and Colima
 profiles. **Do not rerun account creation against this existing account.**
 
 The corrected executor image passed UID 10001 source readability, compilation,
-actual CLI help and version checks at 20:44:54 UTC on 18 September. All 28 network
-checks passed at 20:46:32 UTC. DNS observation and deadline cleanup passed at
-20:53:23 UTC. Subscription device sign-in started at 20:53:45 UTC; the temporary
-controller expired at 20:55:25 UTC during that attempt. The user subsequently
-reported browser approval. Saved runtime authentication and the first isolated
-task still require verification.
+actual CLI help and version checks at 20:44:54 UTC on 18 September. On
+19 September 2026, refreshed 28-check network and DNS/cleanup verification
+passed at 08:53:42 UTC; separate subscription login completed at 08:55:07 UTC.
+The maintained `run-task.py` completed its first scoped inventory task at
+08:55:47.967 UTC. Post-task inspection at 08:55:48 UTC found valid local
+authentication schema, the sole pinned proxy, no task containers and no
+submitted task directories.
 See the [Mac agent flow](../../docs/MAC_AGENT_FLOW.md) and
-[executor evidence and limits](README.md). No AWS session has been handed to a task.
+[executor evidence and limits](README.md). The task used the exact inventory
+role and a temporary AWS session; existing host agents have not been migrated.
 
 Later inspection found the default Homebrew Python executable is mode 0700 and
 inaccessible to the runtime account. Use **`/opt/homebrew/bin/python3.13`** for
@@ -22,7 +24,7 @@ local runtime commands: it is Python 3.13.11 with accessible ancestry, passes
 the executor tests and loads both launcher modules under the actual runtime UID.
 The host launchers use Docker subprocesses and do not require host Python SSL;
 their SHA-256 fallback, archive operations, entropy and nanosecond timestamp
-parsing were checked. The container's TLS checks remain required. No interpreter
+parsing were checked. The container's allowed HTTPS checks passed. No interpreter
 or Homebrew library permissions were broadened. System Python
 3.9 rejects nanosecond authentication timestamps and is not a substitute.
 
@@ -157,16 +159,19 @@ verified runtime controls. After the task, the container is removed; credentials
 expire normally. Stop only profile `aws-agent` under its owning account when
 finished. Leave the human's existing profiles and applications unchanged.
 
-Remaining activation steps are fresh subscription sign-in/verification and the
-first read-only AWS task. The dedicated Docker context has been restored and
+The inventory flow, separate subscription login and normal task cleanup are
+verified. The dedicated Docker context has been restored and
 verified. Current network evidence includes disabled IPv6 on every interface,
 no IPv6 addresses/routes, and tested allowed/denied proxy paths. DNS controls
 used real UDP queries and synthetic TCP packet canaries, with no negative nonce
 observed; this does not establish successful TCP DNS transactions. The external
-watchdog removed a termination-resistant dummy in 10.174 seconds.
+watchdog removed a termination-resistant dummy in 10.174 seconds on 18 September;
+the refreshed checks passed on 19 September. AWS expiry and abrupt launcher
+death have not been exercised. An isolated IAM-audit task remains untested.
 
-The finite foreground continuation uses fixed action names/accounts, private
-receipts and a reviewed source hash for each job. It keeps Terminal authorization
-alive for at most 45 minutes and installs no service or sudo policy. Any new
-device code is shown only in that Terminal. Human OS authentication and browser
-subscription authorization are separate steps.
+The finite foreground continuation closed at 08:56:42.783 UTC on 19 September;
+its Terminal window can be closed. It used fixed action names/accounts, private
+receipts and reviewed source hashes, with a 45-minute maximum, and installed no
+service or sudo policy. Future tasks use the maintained routine runner from a
+human Terminal. Mac authentication, AWS SSO and runtime subscription login have
+separate lifetimes; renew only the access that needs it.

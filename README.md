@@ -22,9 +22,11 @@ preserved during the rebuild. The deployed
 roles, bringing the total to 135. Both named profiles passed live identity and
 permission checks with one-hour sessions. The [agent flow](docs/ACCESS_REBUILD.md)
 defaults to read-only discovery; named-project changes need their own scoped
-identity. The dedicated local executor has passed its network and cleanup
-checks. Saved runtime subscription authentication and the first isolated task
-still require verification. Follow the [Mac agent flow](docs/MAC_AGENT_FLOW.md).
+identity. On 19 September 2026, the dedicated Mac executor completed its first
+inventory task through the maintained routine CLI, with a separate Codex
+subscription login, verified scoped AWS identity and successful cleanup.
+Follow the [Mac agent flow](docs/MAC_AGENT_FLOW.md). Existing host Codex/OpenClaw
+sessions are not automatically moved into that runtime.
 
 ## Start here
 
@@ -99,7 +101,7 @@ flowchart TB
 | [docs/STATUS.md](docs/STATUS.md) | Dated observations and outstanding setup. |
 | [infrastructure/](infrastructure/README.md) | Boundary for shared stacks adopted into this repository. |
 | [infrastructure/agent-access/](infrastructure/agent-access/README.md) | Deployed Identity Center foundation, verification record and profile example. |
-| [infrastructure/agent-executor/](infrastructure/agent-executor/README.md) | Verified container/network and prepared credential handoff; subscription and first task pending. |
+| [infrastructure/agent-executor/](infrastructure/agent-executor/README.md) | Verified Mac runtime, private credential handoff, separate subscription login and first inventory task. |
 | `scripts/aws_inventory.py` | Account verification, offline plans and metadata collection. |
 | `tests/` | Offline tests for account selection, output and failure handling. |
 | `inventory/local/` | Generated private reports; never committed. |

@@ -15,10 +15,16 @@ for changes. The [role map](IAM_ROLE_MAP_2026-09-18.md) and
 local profiles are authenticated. The two permission sets and assignments were
 deployed at 17:17 UTC; live one-hour credential, identity and allow/deny checks
 passed at 17:18 UTC. All 133 existing roles were preserved; two new SSO roles
-bring the total to 135. The [executor bundle](../infrastructure/agent-executor/README.md)
-now has a dedicated Mac runtime and verified images, 28 network checks,
-DNS observation and external deadline cleanup. Saved runtime subscription
-authentication and the first isolated AWS/model task still require verification.
+bring the total to 135.
+
+**19 September runtime verification:** the
+[executor bundle](../infrastructure/agent-executor/README.md) passed refreshed
+network and DNS/cleanup checks at 08:53:42 UTC. Its separate subscription login
+completed at 08:55:07 UTC, and the maintained routine CLI completed an inventory
+task at 08:55:47.967 UTC with the pinned AWS identity. Post-task inspection
+confirmed cleanup and valid local authentication schema. See the
+[dated results and limits](STATUS.md). Existing host Codex/OpenClaw processes
+remain outside this runtime; an isolated IAM-audit task has not been live-tested.
 
 ## What agents can reach today
 
@@ -34,8 +40,9 @@ The local audit found `~/.aws/config` and login-cache JSON files at mode `0600`,
 cache directories at `0755`, and no `~/.aws/credentials` file. These observations
 do not establish isolation between processes sharing the same OS user.
 Unrestricted Codex and OpenClaw processes running under that user can access the
-human login configuration and cache. No separate per-agent credential boundary
-was established. No credential values are reproduced here.
+human login configuration and cache. The separate runtime now provides a
+credential boundary for tasks explicitly submitted through its runner; existing
+host processes have not been migrated. No credential values are reproduced here.
 
 **Selecting a narrower profile alone cannot isolate an agent that can still read
 the administrator cache.** It selects credentials for that invocation; it does
@@ -88,12 +95,12 @@ flowchart LR
     Human["Human admin login cache"] --> Agents["Codex / OpenClaw"]
     Agents --> Admin["AdministratorAccess"]
   end
-  subgraph Target["Proposed · isolated runtime"]
+  subgraph Target["Verified inventory flow · isolated runtime"]
     SSO["Existing Identity Center"] --> Session["Selected account and access tier"]
     Session --> Runtime["Agent receives only scoped temporary credentials"]
     Runtime --> IAM["IAM enforces the selected role permissions"]
   end
-  Current -. "Explicit future access change" .-> Target
+  Current -. "Explicit task submission; no automatic migration" .-> Target
 ```
 
 Enforcement needs both scoped IAM permissions **and a runtime unable to retrieve
@@ -130,6 +137,6 @@ and remove that permission from the proposed role; also check other grants.
 [Policy limits](../policies/README.md), [Lambda response schema](https://docs.aws.amazon.com/lambda/latest/api/API_ListFunctions.html).
 
 The [access rebuild](ACCESS_REBUILD.md) records the deployed assignments and
-policies. Runtime isolation, project deployment identities and migration of
-existing OpenClaw credentials remain separate work. No existing access key was
+policies and the verified inventory runtime. Project deployment identities and
+migration of existing host Codex/OpenClaw access remain separate work. No existing access key was
 deactivated by provisioning these two tiers.

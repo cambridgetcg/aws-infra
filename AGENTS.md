@@ -16,8 +16,11 @@ docs/OWNERSHIP.md before changing an account or an existing stack.
   fall back to `default` or administrator access. A privileged identity requires
   an authorized, named change. See docs/ACCESS_REBUILD.md for activation status.
 - These host-profile defaults are workflow guidance, not isolation from the
-  human cache. Autonomous execution uses the separately verified runtime in
-  infrastructure/agent-executor; do not label this host shell isolated.
+  human cache. Submit autonomous Cambridge tasks through
+  `infrastructure/agent-executor/run-task.py` with reviewed task JSON and TAR
+  inputs; inventory is its default tier. Follow `docs/MAC_AGENT_FLOW.md` for
+  Terminal authentication and recovery. The isolated runtime has passed its
+  inventory task check; this host shell retains human-side access.
 - The bundled collector is read-only. Keep its command list explicit and its
   output limited to selected metadata. Do not add apply/delete/deploy behavior
   to the collector.

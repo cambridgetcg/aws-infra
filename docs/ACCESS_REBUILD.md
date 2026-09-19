@@ -119,14 +119,23 @@ DNS observation and external deadline cleanup passed at 20:53:23 UTC. The
 [executor bundle](../infrastructure/agent-executor/README.md) implements the
 trusted issuer, separate launcher and whole Codex process described here. It
 defaults to inventory, pins the generated role's account/name/immutable ID,
-rejects persistent credentials and ends before expiration. Its offline tests
+rejects persistent credentials and bounds task execution by credential expiry.
+Its offline tests
 cover credential/identity rejection, archive handling, bounded I/O and container
-controls. The dedicated proxy/network have now been exercised without
-credentials. Subscription device sign-in began at 20:53:45 UTC; the temporary
-controller expired at 20:55:25 UTC during that attempt. The user subsequently
-reported browser approval, but saved runtime authentication and the first
-isolated AWS/model task still require verification. Host-profile checks
-alone do not establish that end-to-end flow. See the [Mac agent flow](MAC_AGENT_FLOW.md).
+controls.
+
+On **19 September**, refreshed 28-check network and DNS/cleanup verification
+passed at 08:53:42 UTC against the same pinned runtime. Fresh subscription login
+completed at 08:55:07 UTC. At 08:55:47.967 UTC the maintained `run-task.py` completed
+its first inventory task: the trusted result matched the pinned Cambridge
+inventory role, and the model reported four VPCs and expected IAM `AccessDenied`.
+The AWS session had expiry `2026-09-19T09:55:08+00:00`. Post-task inspection at
+08:55:48 UTC confirmed valid local authentication schema, no submitted task
+directories, no task containers and the sole pinned proxy. Authentication was
+privately persisted for the same account; this does not independently establish
+token rotation. The separate fixed smoke helper and isolated IAM-audit execution
+were not live-tested. See the [Mac agent flow](MAC_AGENT_FLOW.md) and
+[detailed result limits](STATUS.md).
 Named-project write access remains a per-project follow-up.
 
 Model access uses the owner's **Codex subscription**, with a fresh login in the
@@ -135,7 +144,9 @@ only AWS credentials. No API key or existing human Codex login is copied. See
 [subscription authentication](../infrastructure/agent-executor/subscription-auth.md).
 The DNS check used actual UDP controls and synthetic TCP packet canaries; it
 does not claim successful TCP DNS transactions. The deadline check removed a
-termination-resistant dummy in 10.174 seconds, without testing AWS expiry.
+termination-resistant dummy in 10.174 seconds on 18 September; the checks passed
+again on 19 September. Neither AWS credential expiry nor abrupt launcher death
+was exercised.
 Private runtime receipts preserve the exact image/source and network evidence.
 Subscription tokens have their own lifetime; the AWS session's one-hour expiry
 does not revoke the model login.

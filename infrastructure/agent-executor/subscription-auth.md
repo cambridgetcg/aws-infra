@@ -3,8 +3,13 @@
 The executor uses the owner's **Codex subscription through ChatGPT**. The issuer
 hands over only one verified temporary AWS session. The runtime launcher reads
 its own explicit `--model-auth` file; API-key handoffs and API authentication
-are rejected. This implementation has offline tests; a fresh runtime login and
-an end-to-end model task still need live verification.
+are rejected. A fresh runtime login completed on **19 September 2026 at
+08:55:07 UTC**, including client completion, private file read, validation and
+save. The maintained routine CLI completed an inventory task at 08:55:47.967 UTC
+and privately persisted the returned authentication for the same account.
+Post-task inspection confirmed valid local authentication schema and cleanup.
+This verifies the authentication round trip, not independently observed token
+rotation. See [the dated result and limits](../../docs/STATUS.md).
 
 ## Create a separate runtime login
 
@@ -14,8 +19,11 @@ Codex from the verified image, with a new tmpfs `CODEX_HOME`; no host Codex
 installation is required. Never copy the human's `~/.codex/auth.json`, keychain
 entries, SSO refresh cache or API keys into this runtime.
 
-For the selected `aws-agent` account, create its private destination directory
-and run the staged helper in that account's clean session:
+For a fresh login, the following low-level arguments belong inside the reviewed
+launcher running as `aws-agent` (UID 502), using the actual latest passing
+network-report path. The account is locked; do not sign into it or run these
+commands as the human account. The normal task workflow is in the
+[Mac agent flow](../../docs/MAC_AGENT_FLOW.md).
 
 ```sh
 umask 077
@@ -54,8 +62,9 @@ suggests reading them inside the container with `docker exec`.
 On this runtime, a credential-free reproduction confirmed that the old copy
 operation failed without output; the new reader retrieved a known 24-byte
 synthetic file with the required owner and mode. Those test containers were
-removed. This verifies the file transport, not a completed subscription login
-or model task; the corrected login attempt still needs live verification.
+removed. Those tests verified file transport; the corrected helper subsequently
+completed the real login and inventory-task authentication round trip recorded
+above.
 Failure diagnostics report only fixed phase names and the exception class.
 
 The runtime's separate login must not be used simultaneously by another CLI,
@@ -108,5 +117,6 @@ do not expire when the AWS session ends. The task process can read its supplied
 model tokens, and literal output redaction cannot prevent deliberate encoded
 exfiltration. The dedicated account, reviewed inputs and network restrictions
 remain part of the trust boundary. The proxy needs reviewed ChatGPT/authentication
-endpoints, including `chatgpt.com` and `auth.openai.com`; endpoint reachability
-and actual model access still require verification.
+endpoints, including `chatgpt.com` and `auth.openai.com`. Endpoint reachability,
+fresh login and actual inventory-task model access passed on 19 September.
+Changes to the runtime or endpoint policy require revalidation.

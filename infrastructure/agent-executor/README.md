@@ -1,12 +1,12 @@
-# Isolated agent executor — network verified, first task pending
+# Isolated agent executor — inventory task verified
 
 This bundle runs the **whole Codex CLI process** with one temporary AWS session
-inside a disposable container. The corrected executor image was verified on
-18 September at 20:44:54 UTC. All 28 network checks passed at 20:46:32 UTC; DNS
-observation and deadline cleanup passed at 20:53:23 UTC. The temporary controller
-expired at 20:55:25 UTC during subscription sign-in. The user subsequently
-reported browser approval; saved runtime authentication and the first isolated
-AWS/model task still require verification. The interactive Codex app on Yu's current account remains outside
+inside a disposable container. On 19 September 2026, refreshed network and
+DNS/cleanup checks passed at 08:53:42 UTC, separate subscription login completed
+at 08:55:07 UTC, and the maintained `run-task.py` completed its first inventory
+task at 08:55:47.967 UTC. Post-task inspection at 08:55:48 UTC confirmed valid
+local authentication schema, no submitted task directories or task containers,
+and the sole pinned proxy. The interactive Codex app on Yu's current account remains outside
 this boundary; selecting a narrower AWS profile cannot isolate that app from the
 human administrator cache.
 
@@ -14,7 +14,10 @@ The [local Mac setup](setup-local.md) has a verified, locked standard account
 and a running separate Colima profile, with a local credential pipe and no host
 SSH server. Docker Engine 28.4.0 runs the verified images. See the
 [Mac agent flow](../../docs/MAC_AGENT_FLOW.md) for the operator workflow.
-Subscription verification and an actual scoped task remain before activation.
+The inventory flow is live-verified. The separate fixed smoke helper and an
+isolated IAM-audit task were not live-tested. The trusted result matched the
+pinned inventory role; the model reported four VPCs and expected IAM denial.
+See [result evidence and limits](../../docs/STATUS.md).
 
 ```mermaid
 flowchart LR
@@ -31,7 +34,7 @@ does not accept arbitrary profiles, roles, or administrator fallback. Named
 project write access requires a separately reviewed role and launcher change;
 it is not available in this bundle.
 
-## Required before activation
+## Required runtime controls
 
 1. The reviewed [access foundation](../agent-access/README.md) is deployed,
    human SSO login succeeded, and each generated role's exact ARN and immutable
@@ -72,7 +75,8 @@ it is not available in this bundle.
    `127.0.0.11` resolver. They must fail while approved HTTPS through the proxy
    succeeds. The launcher does not execute or attest these operational probes.
    These network checks passed for the current image/configuration; repeat them
-   after changes. Subscription and task verification remain pending.
+   after changes. Subscription and inventory-task verification passed on
+   19 September; matching proofs are required for routine submissions.
 
 The account's administrator can change policies or role assignments. This
 bundle isolates human administrator credentials from the task process; it cannot restrict the human
@@ -204,8 +208,10 @@ observation now passed with zero drops/errors, real UDP controls and synthetic
 checksummed TCP packet controls captured on `eth0` before/after all six negative
 socket-query attempts; no negative nonce was observed. Synthetic TCP controls
 calibrate capture, not a successful TCP DNS transaction or universal escape
-prevention. A termination-resistant dummy was removed after 10.174 seconds.
-AWS expiry, abrupt launcher death and the actual isolated task remain untested. `run` does not automatically execute or attest these probes.
+prevention. A termination-resistant dummy was removed after 10.174 seconds on
+18 September; refreshed DNS/cleanup checks passed on 19 September. The inventory
+task and normal cleanup passed, but AWS expiry and abrupt launcher death remain
+untested. `run` does not automatically execute or attest these probes.
 
 ```sh
 python3 -B -m unittest discover -s infrastructure/agent-executor -p 'test_*.py' -v
