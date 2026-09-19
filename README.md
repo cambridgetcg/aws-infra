@@ -27,6 +27,8 @@ inventory task through the maintained routine CLI, with a separate Codex
 subscription login, verified scoped AWS identity and successful cleanup.
 Follow the [Mac agent flow](docs/MAC_AGENT_FLOW.md). Existing host Codex/OpenClaw
 sessions are not automatically moved into that runtime.
+The shared `kingdom-aws` submission and [authentication workflow](docs/MAC_AUTH_AUTOMATION.md)
+is being added for both local tools; this new automation still needs its live check.
 
 ## Start here
 
@@ -94,6 +96,7 @@ flowchart TB
 | [docs/IAM_ROLE_MAP_2026-09-18.md](docs/IAM_ROLE_MAP_2026-09-18.md) | Preserved 133-role baseline at 14:26 UTC, owners, consumers and gaps; two scoped roles were added later. |
 | [docs/ACCESS_REBUILD.md](docs/ACCESS_REBUILD.md) | Confirmed migration scope, profiles and isolated agent flow. |
 | [docs/MAC_AGENT_FLOW.md](docs/MAC_AGENT_FLOW.md) | How the Mac operator signs in, launches one scoped task and verifies its result. |
+| [docs/MAC_AUTH_AUTOMATION.md](docs/MAC_AUTH_AUTOMATION.md) | Shared task queue, automatic auth reuse and explicit resume after pre-execution blockers. |
 | [docs/IAM_REVIEW_2026-09-17.md](docs/IAM_REVIEW_2026-09-17.md) | Verified IAM findings, priorities and review limits. |
 | [docs/CAPTIONEER_CLEANUP.md](docs/CAPTIONEER_CLEANUP.md) | Completed five-role retirement, dependency checks and verification. |
 | [policies/](policies/README.md) | Proposed inventory permissions and historical Captioneer policy documents. |

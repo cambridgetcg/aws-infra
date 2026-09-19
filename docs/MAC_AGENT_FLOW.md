@@ -1,11 +1,14 @@
 # Run AWS tasks on this Mac
 
-The [routine runner](../infrastructure/agent-executor/run-task.py) submits reviewed
-task JSON and a small input archive through the separate `aws-agent` runtime.
-**Its first inventory task passed on 19 September 2026 at 08:55:47.967 UTC
-(09:55:47.967 BST).** Refreshed network/DNS checks, a fresh separate subscription
-login and post-task cleanup all passed. The temporary setup controller closed
-at 08:56:42.783 UTC; its Terminal window can be closed. See
+Local Codex and OpenClaw AWS subtasks use the shared `kingdom-aws` command. It
+queues reviewed task JSON and a small input archive for the separate
+`aws-agent` runtime, reusing valid authentication and pausing only for the
+specific access that needs attention. The new queue/authentication workflow
+has **not yet passed its live check**; see [authentication automation](MAC_AUTH_AUTOMATION.md).
+
+The underlying [routine runner](../infrastructure/agent-executor/run-task.py)
+completed its first inventory task on 19 September 2026. Network/DNS checks,
+separate subscription login and post-task cleanup passed. See
 [the dated evidence and limits](STATUS.md).
 
 The verified task used `gpt-5.6-luna`. The executor confirmed the pinned Cambridge
@@ -42,7 +45,7 @@ Routine submissions create a random `tasks/submitted-*` directory with private
 task and archive files. The runtime removes its recorded files and directory
 when the task finishes or unwinds. It does not retain input archives as history.
 
-## Invoke from the human Terminal
+## Prepare task inputs
 
 Run these commands in your own Terminal as the human account. Start in the
 repository, then prepare and validate the task inputs shown in the next section:
@@ -51,22 +54,10 @@ repository, then prepare and validate the task inputs shown in the next section:
 cd /Users/yournameisai/Desktop/aws-infra
 ```
 
-If the scoped AWS SSO login has expired, renew that profile and complete its
-browser authorization while the CLI is waiting:
-
-```sh
-aws sso login --profile cambridge-agent-inventory --use-device-code
-```
-
-The `sudo -v` step below is the separate macOS password prompt. The runner uses `sudo -n` and
-never prompts or reads a password from the credential pipe. Keep the Terminal
-open. It allows 600 seconds for the task and up to 35 seconds for cleanup.
-An unavailable scoped profile fails; there is no administrator-profile fallback.
-
 The runner checks the reviewed executor SHA-256 on both sides. A source change
 stops the task until its new version is reviewed and staged with updated pins.
-Use the accessible Python 3.13 executable shown above; do not substitute the
-default Homebrew interpreter or broaden its permissions.
+The installed command uses the reviewed, accessible Python 3.13 interpreter;
+do not broaden the default Homebrew interpreter's permissions.
 
 ## Submit a routine task
 
@@ -89,11 +80,11 @@ cat > "$TASK_DIR/task.json" <<'JSON'
 JSON
 COPYFILE_DISABLE=1 tar --format ustar -cf "$TASK_DIR/input.tar" -C "$TASK_DIR/context" README.md
 chmod 600 "$TASK_DIR/task.json" "$TASK_DIR/input.tar"
-/opt/homebrew/bin/python3.13 -I -S -B infrastructure/agent-executor/run-task.py \
+~/.local/bin/kingdom-aws plan \
   --task "$TASK_DIR/task.json" --archive "$TASK_DIR/input.tar"
 ```
 
-The default command validates locally and prints input fingerprints; it starts
+The plan command validates locally and prints input fingerprints; it starts
 no child process or authentication. It requires exactly `task_id`, `model` and
 `prompt`, and an uncompressed TAR of at most 8 MiB. Inputs must be owned by the
 human, regular files, canonical paths without symlinks, and not writable by
@@ -101,20 +92,27 @@ other users. Archives cannot contain links, traversal paths or credential/cache
 directories. Review file contents too: filename checks cannot identify secrets
 inside ordinary files. Submit only the context this task needs.
 
-After reviewing that plan, use the same Terminal and files:
+After reviewing that plan, submit the same files:
 
 ```sh
-sudo -v
-/opt/homebrew/bin/python3.13 -I -S -B infrastructure/agent-executor/run-task.py \
-  --task "$TASK_DIR/task.json" --archive "$TASK_DIR/input.tar" --run
+~/.local/bin/kingdom-aws submit \
+  --task "$TASK_DIR/task.json" --archive "$TASK_DIR/input.tar"
+~/.local/bin/kingdom-aws status
 ```
 
 `inventory` is the default tier. For an explicitly requested IAM metadata audit,
-use `--tier iam-audit` during both validation and execution, and renew
-`cambridge-iam-audit` with `aws sso login --profile cambridge-iam-audit --use-device-code`
-only if needed. Both tiers use exact pinned role identities. A conflicting
+use `--tier iam-audit` during both planning and submission. Both tiers use exact
+pinned role identities. A conflicting
 `AWS_PROFILE`, inherited credential override or unavailable scoped session stops
-the task; there is no administrator fallback.
+the task; there is no administrator fallback. Native AWS SSO refresh is tried
+without asking for another browser sign-in on every job.
+
+If the job needs a worker or Mac authentication, run `kingdom-aws start`. Its
+Terminal prompts for the Mac password and any necessary browser approval.
+Use `kingdom-aws status JOB_ID` for the returned job ID. After a prerequisite
+is resolved, `kingdom-aws resume JOB_ID` continues only jobs blocked before
+execution. An actual task failure is never automatically replayed. See the
+[submit/auth-needed/resume flow](MAC_AUTH_AUTOMATION.md).
 
 The target validates the transported inputs again before signaling readiness.
 Only then does the human-side issuer send AWS credentials directly into the
@@ -138,8 +136,9 @@ inspection of the dedicated runtime before another task.
 
 ## Subscription login and recovery
 
-The runtime needs a fresh, separate device-code login using the owner's Codex
-subscription. Its [login helper](../infrastructure/agent-executor/subscription-auth.md)
+The runtime reuses its separate login using the owner's Codex subscription.
+Codex can refresh it during normal use. When a fresh login is necessary, its
+[login helper](../infrastructure/agent-executor/subscription-auth.md)
 uses the verified container and stores the resulting authentication only under
 the private runtime account. The prepared Mac login flow also checks fresh,
 matching network and DNS/cleanup receipts. It does not copy the human's Codex
@@ -148,11 +147,10 @@ cache, use an API key, or supply AWS credentials during login.
 A successful task privately saves returned model authentication for the next
 serialized task. AWS sessions expire separately; their expiry does not revoke
 the ChatGPT login. After an interrupted task or failed authentication round trip,
-inspect cleanup and perform a fresh runtime login. Never restore an older token
-cache. Both runners use `model-auth/auth.json`; changing to a new authentication
-filename requires a reviewed runner change. The existing login
-helper refuses to overwrite a file, so recovery needs a reviewed runtime-side
-handling of the previous invalidated file before reusing this fixed path.
+inspect cleanup before another task. Never restore an older token cache.
+The automation's fresh-login path handles only a missing file or the exact
+invalidated record at `model-auth/auth.json`; other malformed or unsafe files
+stop for review. Authentication values remain private to the runtime.
 
 ## What these entrypoints cover
 
@@ -161,9 +159,9 @@ runner provides reviewed task submission for inventory and explicit IAM audit
 using the [general executor](../infrastructure/agent-executor/README.md).
 The inventory flow is live-verified; IAM audit has profile-level allow/deny
 checks and offline runner tests, but no isolated model-task verification yet.
-Neither runner changes AWS permissions or provisions infrastructure. Automated
-reauthentication recovery remains separate work; current recovery uses the
-reviewed subscription-login flow described above.
+Neither runner changes AWS permissions or provisions infrastructure. The shared
+queue and authentication automation are an additional layer whose live check
+is still pending; the existing verified runner remains its execution boundary.
 
 The existing host Codex/OpenClaw sessions remain outside this runtime boundary.
 Using these entrypoints does not redirect their AWS commands or remove their

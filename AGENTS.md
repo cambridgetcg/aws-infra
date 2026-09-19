@@ -16,11 +16,14 @@ docs/OWNERSHIP.md before changing an account or an existing stack.
   fall back to `default` or administrator access. A privileged identity requires
   an authorized, named change. See docs/ACCESS_REBUILD.md for activation status.
 - These host-profile defaults are workflow guidance, not isolation from the
-  human cache. Submit autonomous Cambridge tasks through
-  `infrastructure/agent-executor/run-task.py` with reviewed task JSON and TAR
-  inputs; inventory is its default tier. Follow `docs/MAC_AGENT_FLOW.md` for
-  Terminal authentication and recovery. The isolated runtime has passed its
-  inventory task check; this host shell retains human-side access.
+  human cache. The shared local Codex/OpenClaw entrypoint is `kingdom-aws`
+  (`~/.local/bin/kingdom-aws`) with reviewed task JSON and TAR inputs; inventory
+  is its default tier. Follow `docs/MAC_AGENT_FLOW.md` and
+  `docs/MAC_AUTH_AUTOMATION.md` for submit/status/start/resume. Resume only a job
+  blocked before execution; never automatically replay a failed or possibly
+  started task. The queue/authentication layer is awaiting its live check; its
+  underlying `infrastructure/agent-executor/run-task.py` inventory flow is
+  verified. This host shell retains human-side access.
 - The bundled collector is read-only. Keep its command list explicit and its
   output limited to selected metadata. Do not add apply/delete/deploy behavior
   to the collector.
