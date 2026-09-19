@@ -442,7 +442,13 @@ class MacAgentTests(unittest.TestCase):
         with patch.object(agent.subprocess, 'run', return_value=types.SimpleNamespace(returncode=0)) as open_terminal:
             with ThreadPoolExecutor(max_workers=2) as pool:
                 results = list(pool.map(lambda _: START_SESSION(), range(2)))
-        self.assertEqual(sorted(value['status'] for value in results), ['terminal_opened', 'terminal_opening'])
+        # A concurrent active_session() probe can briefly hold session.lock.
+        # The other caller may observe that conservative busy result before
+        # launch.lock/launch.json coalesces it as terminal_opening.
+        statuses = [value['status'] for value in results]
+        self.assertEqual(len(statuses), 2)
+        self.assertEqual(statuses.count('terminal_opened'), 1)
+        self.assertTrue(set(statuses) <= {'terminal_opened', 'terminal_opening', 'session_active'})
         open_terminal.assert_called_once()
         self.assertEqual(open_terminal.call_args.args[0][:3], ['/usr/bin/open', '-a', 'Terminal'])
         script = self.root / 'KINGDOM AWS Session.command'
