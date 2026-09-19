@@ -24,19 +24,31 @@ completed at 08:55:07 UTC, and the maintained routine CLI completed an inventory
 task at 08:55:47.967 UTC with the pinned AWS identity. Post-task inspection
 confirmed cleanup and valid local authentication schema. See the
 [dated results and limits](STATUS.md). Existing host Codex/OpenClaw processes
-remain outside this runtime; an isolated IAM-audit task has not been live-tested.
+remain outside this runtime. A later isolated IAM-audit task completed at
+10:37:56 UTC, reporting matching agent-role policies, account summary and expected
+VPC denial with pinned identity and cleanup. See [capability coverage](AWS_CAPABILITIES.md).
 
-## What agents can reach today
+## Human-side access observed on 17 September
 
-The local `default` profile uses `aws login`, region `us-east-1`, and currently
-resolves to IAM user `YuCheung` in Cambridge account `034362054546`.
-`AdministratorAccess` is attached and no permissions boundary was observed.
+On 17 September 2026, the local `default` profile used `aws login`, region
+`us-east-1`, and resolved to IAM user `YuCheung` in Cambridge account
+`034362054546`. `AdministratorAccess` was attached and no permissions boundary
+was observed. These are dated observations, not a fresh login or key/MFA check.
 Temporary login credentials retain the selected identity's permission scope;
 their expiry does not make an administrator session read-only.
 [AWS login](https://docs.aws.amazon.com/cli/latest/reference/login/),
 [temporary credentials](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_use-resources.html).
 
-The local audit found `~/.aws/config` and login-cache JSON files at mode `0600`,
+**19 September policy follow-up:** the isolated IAM-audit task completed at
+10:51:51 UTC and reported `YuCheung` with managed `AdministratorAccess`
+(`Action: "*"`, `Resource: "*"`), no explicit identity-policy deny, boundary or
+groups, and a separate `RDSCardforum-IAMConnect` grant for `rds-db:connect` on
+one limited resource. That additional grant does not narrow administrator
+access. This was a policy read under the audit role; it did not authenticate as
+that user, connect to a database, or recheck login freshness, keys or MFA. See
+[capability findings and limits](AWS_CAPABILITIES.md).
+
+That 17 September local audit found `~/.aws/config` and login-cache JSON files at mode `0600`,
 cache directories at `0755`, and no `~/.aws/credentials` file. These observations
 do not establish isolation between processes sharing the same OS user.
 Unrestricted Codex and OpenClaw processes running under that user can access the
@@ -49,21 +61,24 @@ the administrator cache.** It selects credentials for that invocation; it does
 not revoke access to other profiles or files. The collector's read-only command
 list likewise does not restrict what another command can do with those credentials.
 
-Other identities exist, but are not the current local login:
+Other observations from the same 17 September review are below. Key status,
+last use, MFA and the older session settings have not been rechecked by the
+current capability tasks.
 
 | Observation | Meaning |
 | --- | --- |
 | Existing IAM Identity Center in `us-east-1` | Reuse this access system; a duplicate setup is unnecessary. Observed permission-set sessions: Admin **8 hours**, PowerUser and ReadOnly **12 hours**. Generated roles' 12-hour maximum is a separate setting. |
-| `alpha-agent` IAM user | Both observed access keys are inactive. |
-| `openclaw-agent` IAM user | One active key, created 17 March 2026; last recorded use was STS on 21 August. It is not configured as the local `default` credential. |
-| `openclaw-agent` policy | Includes EC2 start/stop/reboot, security-group ingress changes and Elastic IP allocation/association, with resource `*` and no region conditions, plus self-IAM reads and STS. This is not an inventory-only identity. |
+| `alpha-agent` IAM user | Both observed access keys were inactive. |
+| `openclaw-agent` IAM user | One active key was observed, created 17 March 2026; last recorded use was STS on 21 August. It was not configured as the local `default` credential. |
+| `openclaw-agent` policy | Included EC2 start/stop/reboot, security-group ingress changes and Elastic IP allocation/association, with resource `*` and no region conditions, plus self-IAM reads and STS. This was not an inventory-only identity. |
 | `YuCheung` MFA-device listing | No attached IAM MFA device observed. This query does not establish the authentication context of the particular `aws login` event. |
 
 [ListMFADevices](https://docs.aws.amazon.com/cli/latest/reference/iam/list-mfa-devices.html)
 enumerates devices associated with an IAM user, not session authentication history.
 An active key's last-used record also does not identify which local process holds it.
 
-Cambridge is the **organization management account**. SCPs do not constrain its
+Cambridge was observed as the **organization management account** on 17 September.
+SCPs do not constrain a management account's
 users or roles, and RCPs do not constrain resources owned by it. Do not count
 organization guardrails as protection for this administrator session. An RCP on
 a member-account resource can still affect access to that resource.

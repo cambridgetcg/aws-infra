@@ -133,8 +133,11 @@ The AWS session had expiry `2026-09-19T09:55:08+00:00`. Post-task inspection at
 08:55:48 UTC confirmed valid local authentication schema, no submitted task
 directories, no task containers and the sole pinned proxy. Authentication was
 privately persisted for the same account; this does not independently establish
-token rotation. The separate fixed smoke helper and isolated IAM-audit execution
-were not live-tested. See the [Mac agent flow](MAC_AGENT_FLOW.md) and
+token rotation. The separate fixed smoke helper was not the live entrypoint.
+A targeted isolated IAM-audit task later completed at 10:37:56 UTC with pinned
+identity/cleanup and reported agent-role policy comparisons, account summary and
+expected VPC denial. See [capability coverage](AWS_CAPABILITIES.md), the
+[Mac agent flow](MAC_AGENT_FLOW.md) and
 [detailed result limits](STATUS.md).
 Named-project write access remains a per-project follow-up.
 

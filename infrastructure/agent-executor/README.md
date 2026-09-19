@@ -1,4 +1,4 @@
-# Isolated agent executor — inventory task verified
+# Isolated agent executor — inventory and targeted IAM checks verified
 
 This bundle runs the **whole Codex CLI process** with one temporary AWS session
 inside a disposable container. On 19 September 2026, refreshed network and
@@ -14,9 +14,10 @@ The [local Mac setup](setup-local.md) has a verified, locked standard account
 and a running separate Colima profile, with a local credential pipe and no host
 SSH server. Docker Engine 28.4.0 runs the verified images. See the
 [Mac agent flow](../../docs/MAC_AGENT_FLOW.md) for the operator workflow.
-The inventory flow is live-verified. The separate fixed smoke helper and an
-isolated IAM-audit task were not live-tested. The trusted result matched the
-pinned inventory role; the model reported four VPCs and expected IAM denial.
+The inventory flow is live-verified. The separate fixed smoke helper was not the
+live entrypoint. A targeted isolated IAM-audit task also completed at 10:37:56 UTC,
+reporting matching agent-role policies, account summary and expected VPC denial
+with pinned identity and cleanup. See [capability coverage](../../docs/AWS_CAPABILITIES.md).
 See [result evidence and limits](../../docs/STATUS.md).
 
 ```mermaid

@@ -110,19 +110,25 @@ Private evidence under ignored `inventory/local/`:
 
 The exact principal IDs and raw cloud responses remain outside Git.
 
-## Remaining runtime work
+## Runtime verification and remaining scope
 
-The user selected this Mac for the isolated executor, which has not yet been
-created or verified. Host-profile checks establish the AWS identities and the
-sampled read restrictions; they do not establish isolation from human caches,
-host control or automatic credential refresh.
+The dedicated Mac [executor](../agent-executor/README.md) passed its first
+isolated inventory task on 19 September. Network/DNS checks, separate subscription
+login and cleanup passed; the shared `kingdom-aws` queue subsequently verified
+existing-login and worker reuse. See [dated evidence and limits](../../docs/STATUS.md).
+Automatic browser-renewal branches have offline tests; actual AWS credential
+expiry and abrupt launcher death remain untested. A targeted isolated IAM-audit
+task completed at 10:37:56 UTC, reporting matching policies for both agent roles,
+account summary and the expected VPC denial, with pinned identity and cleanup.
+This samples IAM access; it does not test every permitted action or recheck
+Identity Center session settings and assignments.
 
-Build the [executor](../agent-executor/README.md) and give it only one resolved
-temporary role session. Keep the SSO refresh token, human profile file, admin
-cache and general credential helpers on the trusted launcher. Verify mounts,
-network restrictions, model authentication and expiry without renewal before
-using it for autonomous tasks. Named-project write access remains a separate
-scoped addition. Follow [the agent flow](../../docs/ACCESS_REBUILD.md).
+The runtime receives only one resolved temporary role session. The SSO refresh
+token, human profile file, administrator cache and general credential helpers
+remain on the trusted launcher. Existing host Codex/OpenClaw processes remain
+outside this runtime boundary. Named-project write access remains a separate
+scoped addition. Follow [the Mac agent flow](../../docs/MAC_AGENT_FLOW.md) and
+[capability map](../../docs/AWS_CAPABILITIES.md).
 
 The repository's `make inventory-plan` and `make inventory-scan` select the
 restricted host profile and its eight supported services. A direct collector
@@ -135,7 +141,7 @@ python3 scripts/aws_inventory.py scan --account cambridge-tcg --profile cambridg
   --service dynamodb --service sqs --service cloudformation --service s3
 ```
 
-The isolated executor will receive its separate single `task` profile, not the
+The isolated executor receives its separate single `task` profile, not the
 host's SSO configuration. The earlier
 [agent-inventory-read.json](../../policies/agent-inventory-read.json) proposal
 includes Lambda and remains unattached; it is not used by this template.
@@ -167,5 +173,6 @@ record is `inventory/local/20260918T143002.853265Z-agent-access-proposal.json`.
 
 Offline tests guard the account/region mapping, required explicit assignments,
 session duration, absence of broad managed-policy attachments, deny exceptions
-and profile separation. Live activation and sampled profile checks are now
-complete; executor isolation checks remain outstanding.
+and profile separation. Live activation, sampled profile checks and the isolated
+inventory flow are verified. Their dated scope and remaining limits are recorded
+in [current status](../../docs/STATUS.md).

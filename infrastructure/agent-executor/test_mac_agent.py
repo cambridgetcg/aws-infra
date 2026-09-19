@@ -309,6 +309,73 @@ class MacAgentTests(unittest.TestCase):
                     agent.resume(path.name)
                 self.assertNotIn('private child diagnostics', self.stdout.getvalue())
 
+    def test_empty_and_whitespace_results_preserve_evidence_check_cleanup_and_never_resume(self):
+        for text in ('', ' \t\r\n', '\u2003'):
+            with self.subTest(text=text):
+                path = self.queue()
+                raw = json.dumps({'result': text, 'fixture_metadata': 'private-evidence-marker'}).encode()
+                order = []
+
+                def auth(runner, action='status', expected_sha=None):
+                    if order:
+                        order.append('post_task_check')
+                        self.assertEqual((path / 'result.json').read_bytes(), raw)
+                        self.assertEqual(self.state(path)['status'], 'running')
+                        self.assertTrue(self.state(path)['execution_started'])
+                    else:
+                        order.append('pre_task_check')
+                    return {'auth_state': 'valid'}
+
+                def child(*args):
+                    order.append('task')
+                    return 0, raw, b''
+
+                with patch.object(agent, 'aws_identity', return_value='ready'), \
+                        patch.object(agent, 'runtime_auth', side_effect=auth) as checks, \
+                        patch.object(agent, 'task_command', return_value=['synthetic-task']), \
+                        patch.object(agent, 'run_process', side_effect=child) as process:
+                    agent.process_job(path)
+                    self.assertEqual(order, ['pre_task_check', 'task', 'post_task_check'])
+                    self.assertEqual(checks.call_count, 2)
+                    self.assertEqual((self.state(path)['status'], self.state(path)['execution_started']),
+                                     ('failed', True))
+                    self.assertEqual(self.state(path)['reason'], 'empty_task_result_no_automatic_replay')
+                    self.assertEqual((path / 'result.json').read_bytes(), raw)
+                    self.assertEqual(stat.S_IMODE((path / 'result.json').stat().st_mode), 0o600)
+                    self.assertEqual(stat.S_IMODE((path / 'status.json').stat().st_mode), 0o600)
+                    self.launch.reset_mock()
+                    with self.assertRaisesRegex(agent.Stopped, '^execution_may_have_started_create_new_reviewed_task$'):
+                        agent.resume(path.name)
+                    with self.assertRaisesRegex(agent.Stopped, '^job_cannot_be_replayed$'):
+                        agent.process_job(path)
+                    self.launch.assert_not_called()
+                    process.assert_called_once()
+                self.assertNotIn('private-evidence-marker', self.stdout.getvalue())
+
+    def test_empty_result_does_not_mask_failed_post_task_check(self):
+        path = self.queue()
+        raw = b'{"result":""}'
+        with patch.object(agent, 'aws_identity', return_value='ready'), \
+                patch.object(agent, 'runtime_auth', side_effect=[{'auth_state': 'valid'}, {'auth_state': 'invalidated'}]) as checks, \
+                patch.object(agent, 'task_command', return_value=['synthetic-task']), \
+                patch.object(agent, 'run_process', return_value=(0, raw, b'')):
+            agent.process_job(path)
+        self.assertEqual(checks.call_count, 2)
+        self.assertEqual((self.state(path)['status'], self.state(path)['execution_started']), ('failed', True))
+        self.assertEqual(self.state(path)['reason'], 'post_task_cleanup_or_auth_failed')
+        self.assertEqual((path / 'result.json').read_bytes(), raw)
+        with self.assertRaisesRegex(agent.Stopped, '^execution_may_have_started_create_new_reviewed_task$'):
+            agent.resume(path.name)
+
+    def test_nonempty_result_with_surrounding_whitespace_is_accepted_unchanged(self):
+        path = self.queue()
+        raw = json.dumps({'result': ' \nfixture summary\t '}).encode()
+        _, _, checks, _, _, process = self.outcome(path, output=raw)
+        self.assertEqual((self.state(path)['status'], self.state(path)['execution_started']), ('succeeded', True))
+        self.assertEqual((path / 'result.json').read_bytes(), raw)
+        self.assertEqual(checks.call_count, 2)
+        process.assert_called_once()
+
     def test_post_task_auth_failure_stays_failed_even_with_result_saved(self):
         path = self.queue()
         with patch.object(agent, 'aws_identity', return_value='ready'), \

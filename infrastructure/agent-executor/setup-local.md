@@ -167,7 +167,9 @@ used real UDP queries and synthetic TCP packet canaries, with no negative nonce
 observed; this does not establish successful TCP DNS transactions. The external
 watchdog removed a termination-resistant dummy in 10.174 seconds on 18 September;
 the refreshed checks passed on 19 September. AWS expiry and abrupt launcher
-death have not been exercised. An isolated IAM-audit task remains untested.
+death have not been exercised. A targeted isolated IAM-audit task later completed
+with pinned identity/cleanup and reported agent-role policy comparisons, account
+summary and expected VPC denial. See [capability coverage](../../docs/AWS_CAPABILITIES.md).
 
 The finite foreground continuation closed at 08:56:42.783 UTC on 19 September;
 its Terminal window can be closed. It used fixed action names/accounts, private

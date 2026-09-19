@@ -30,6 +30,22 @@ The human queue retains input snapshots, status and results under
 `~/.aws/agent-runtime/automation/jobs/`; it does not automatically prune them.
 Temporary runtime input files are removed separately when the task finishes.
 
+Inspect the report's required fields and coverage before accepting its findings.
+The coordinator preserves the private result and checks runtime cleanup before
+rejecting empty or whitespace-only output as
+`empty_task_result_no_automatic_replay`. That job remains started and failed;
+it cannot be resumed. A nonempty error-only report still needs interpretation:
+queue success establishes the runtime workflow, not completion of every
+requested cloud check. The underlying direct runner does not enforce this new
+nonempty-result check.
+
+For long-running script tasks, explicitly require the model to poll the same
+execution session until the process exits and returns its final report. A tool
+yield or an empty intermediate chunk is not process completion. The September
+19 review encountered missing reports before a smaller role check with progress
+markers and explicit waiting returned usable findings; the original subprocess
+history was not retained, so its cause remains unproven. See [current status](STATUS.md).
+
 If a worker or Mac authorization is needed, run:
 
 ```sh
@@ -103,5 +119,6 @@ results, never token values or saved device codes.
 The shared command lets both local tools submit the same kind of isolated AWS
 task. It does not move their entire host sessions into the container, remove
 their existing access, or expand the approved endpoint list. Named-project
-writes remain a separately scoped change; isolated IAM-audit execution still
-needs its own live verification.
+writes remain a separately scoped change. Isolated inventory and a targeted
+IAM-audit task have live results; [capability coverage](AWS_CAPABILITIES.md)
+distinguishes their sampled checks from untested access.

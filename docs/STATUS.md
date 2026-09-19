@@ -19,6 +19,7 @@ All times are UTC. Account, role and foundation observations below are dated
 | Profile checks | At 17:18:32 UTC, both profiles passed exact-role identity and temporary one-hour session checks. Inventory: EC2 VPC read allowed, IAM role listing denied. IAM audit: IAM role listing allowed, EC2 VPC read denied. Private verification receipt ends `171832.669636Z-agent-profile-verification.json`. |
 | Executor | [Dedicated Mac runtime](MAC_AGENT_FLOW.md) and Squid proxy use Docker Engine 28.4.0. On 19 September, refreshed 28-check network and DNS/cleanup verification passed at 08:53:42 against the same pinned runtime. The maintained `run-task.py` completed its first inventory task at 08:55:47.967; post-task inspection passed at 08:55:48. |
 | Local automation | The shared [`kingdom-aws` queue](MAC_AUTH_AUTOMATION.md) completed its first inventory task on 19 September at 09:40:57.235885, using existing AWS and runtime Codex logins after Mac password entry. Its final state includes successful runtime checks after task completion. Automatic browser-renewal branches have offline tests. |
+| Capability probes | On 19 September, inventory completed at 10:26:00.426433 with eight allowed reads and expected denials reported. A targeted IAM task completed at 10:37:56.219221 with matching agent-role policies, account summary and expected VPC denial reported. Later reports covered human SSO-admin, legacy OpenClaw and human IAM-user policies; the last completed at 10:51:51.911421. These tasks had pinned identity and cleanup checks. See [capability map](AWS_CAPABILITIES.md). |
 
 The trusted task result matched Cambridge account `034362054546` and the pinned
 inventory role ID. The model reported `vpc_count: 4`, `iam_list_roles: AccessDenied`
@@ -28,8 +29,9 @@ The CLI waited for successful target exit, including staging cleanup. Post-task
 inspection found valid local authentication schema, only the pinned proxy,
 no submitted task directories and no other containers. Returned authentication
 was privately persisted for the same account; token rotation was not independently
-observed. The separate fixed smoke helper and an isolated IAM-audit task were
-not live-tested.
+observed. The separate fixed smoke helper was not live-tested. That first task
+tested inventory; the later IAM attempts and their results are recorded
+below.
 
 The temporary foreground controller closed at 08:56:42.783 UTC on 19 September.
 Its Terminal window can be closed. The reviewed private summary is
@@ -54,6 +56,61 @@ result file. The worker closed at 09:42:37.403267 after `kingdom-aws stop`, and
 status showed both jobs succeeded with no active session. That Terminal window
 can be closed. This establishes worker/session reuse; automated browser renewal
 and token refresh are not independently observed live events.
+
+The later inventory capability report matched the reviewed probe-script
+identifier. The model reported 1 EC2 instance, 4 VPCs, 3 RDS instances, 0 ECS
+clusters, 17 DynamoDB tables, 12 SQS queues, 32 CloudFormation stack summaries
+(which may include retained deleted stacks) and 63 S3 buckets. The regional reads cover
+`us-east-1`; S3 listing is account-wide. `iam:ListRoles` was reported denied with
+`AccessDenied`; `ec2:DescribeSecurityGroups` and `ec2:CreateTags --dry-run` with
+`UnauthorizedOperation`. No actual AWS write was requested. The trusted wrapper
+matched the pinned inventory identity and recorded session expiry 10:40:21 UTC;
+its successful status includes post-task checks.
+
+The initial IAM-audit attempt at 10:27:14.210680 passed wrapper identity/cleanup
+checks but returned an empty result (0 bytes); a later compact attempt returned
+`{"error":"no stdout"}`. Neither establishes which requested reads completed.
+An output-only diagnostic established no policy facts. These attempts were not
+automatically replayed or counted as successful audits.
+
+A separately reviewed targeted IAM task completed at 10:37:56.219221. Its model
+report covered 12 calls with no failures and matching identity before/after.
+Account summary reported 135 roles and 8 users. Both agent roles matched their
+pinned IDs and expected canonical inline policies, with one inline policy each,
+no managed-policy attachments and no permissions boundary. The audit role was
+reported denied `ec2:DescribeVpcs` with `UnauthorizedOperation`. Its wrapper
+verified the pinned audit identity and cleanup. The reported 43,200-second IAM
+role ceilings are separate from the earlier verified one-hour Identity Center
+settings; those settings and assignments were not rechecked.
+
+A separate human/legacy policy task completed at 10:45:16.494257. Its model
+reported 18 calls with matching STS identity before/after, but `complete: false`
+because the `YuCheung` IAM-user check returned `malformed_response`. This is not
+an AWS-denial or no-policy finding. The successful portions reported the human
+SSO administrator role's unconditional managed `AdministratorAccess` grant
+(`Action: "*"`, `Resource: "*"`) without a boundary, and the legacy OpenClaw
+user's broad EC2 operations plus describe/self-IAM/STS permissions. The legacy
+user had no groups, boundary or explicit deny reported.
+
+The human IAM-user parser had rejected the valid hyphenated service prefix
+`rds-db`. A focused follow-up using the corrected validator completed at
+10:51:51.911421: its model reported 10 calls, no failures, and matching STS
+identity before/after. It reported `YuCheung` with unconditional managed
+`AdministratorAccess`, no explicit identity-policy deny, boundary or groups,
+plus `RDSCardforum-IAMConnect` allowing `rds-db:connect` to one limited resource.
+The additional grant does not restrict AdministratorAccess. No database
+connection was tested. These policy reads did not use the broader identities or
+perform writes; Identity Center assignment, login freshness, key status, MFA and
+current legacy credential use were not checked. The earlier parser failure is
+resolved by this later report. Capability results and limits are recorded in the
+reviewed private summary
+`inventory/local/20260919-access-capability-verification.json`.
+
+After these live checks, the worker was stopped and status confirmed no active
+session. The host queue was then updated to reject empty or whitespace-only task
+results; regression tests cover both cases. The installed command passed an
+offline plan, but the new result guard has not been exercised in a live cloud
+task. The capability findings above used the preceding host version.
 
 The successful identity checks, inventory and retirement verification are dated
 observations. They do not establish an effective-permission audit of every resource or access

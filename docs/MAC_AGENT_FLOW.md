@@ -17,8 +17,9 @@ inventory role; the model reported four VPCs, expected IAM `AccessDenied` and
 overall success. Model-written results are summaries to assess, not independent
 attestation of every command. The separate
 [fixed smoke helper](../infrastructure/agent-executor/run-inventory-smoke.py)
-has offline tests but was not the live entrypoint. An isolated IAM-audit task
-has not yet been live-tested.
+has offline tests but was not the live entrypoint. A later isolated IAM-audit
+task reported matching agent-role policies, account summary and expected VPC
+denial, with pinned identity and cleanup; see [capability coverage](AWS_CAPABILITIES.md).
 
 The human issues a short AWS session from `cambridge-agent-inventory` by default; the
 runtime uses its own ChatGPT subscription login. The runner waits for the
@@ -166,9 +167,10 @@ The smoke runner accepts only its fixed inventory verification. The routine
 runner provides reviewed task submission for inventory and explicit IAM audit
 using the [general executor](../infrastructure/agent-executor/README.md).
 The inventory runner and shared queue's existing-login path are live-verified.
-Automatic browser-renewal branches have offline tests; IAM audit has profile-level
-allow/deny checks and offline runner tests, but no isolated model-task verification
-yet. Neither runner changes AWS permissions or provisions infrastructure. The
+Automatic browser-renewal branches have offline tests. A targeted isolated IAM
+task also passed identity/cleanup and returned the sampled policy/read results
+documented in the capability map. Neither runner changes AWS permissions or
+provisions infrastructure. The
 shared queue uses the existing verified runner as its execution boundary.
 
 The existing host Codex/OpenClaw sessions remain outside this runtime boundary.

@@ -31,6 +31,10 @@ The shared `kingdom-aws` submission and [authentication workflow](docs/MAC_AUTH_
 also passed its first inventory task on 19 September, reusing existing AWS and
 runtime Codex authentication after Mac password entry. Automatic browser-renewal
 branches have offline tests; see [current evidence and limits](docs/STATUS.md).
+The [AWS capability map](docs/AWS_CAPABILITIES.md) separates configured reads,
+write restrictions, network scope and verified coverage. Fresh inventory and
+targeted IAM tasks returned resource counts, matching agent-role policies and
+expected denials. These selected checks do not establish access to all resources.
 
 ## Start here
 

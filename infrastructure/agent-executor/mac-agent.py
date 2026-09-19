@@ -460,6 +460,7 @@ def process_job(path):
         require(isinstance(result, dict) and isinstance(result.get('result'), str), 'invalid_task_result')
         write_new(path / 'result.json', output)
         require(runtime_auth(runner, expected_sha=helper_sha)['auth_state'] == 'valid', 'post_task_cleanup_or_auth_failed')
+        require(bool(result['result'].strip()), 'empty_task_result_no_automatic_replay')
         receipt(path, status='succeeded', result_file=str(path / 'result.json'))
     except BaseException as error:
         current = json.loads(owned(path / 'status.json'))

@@ -15,6 +15,10 @@ Codex executor. The current host Codex/OpenClaw process remains outside that bou
    model choices. Keep credentials, caches, environment files, repository history,
    and unrelated project data out of the archive. The archive limit is 8 MiB;
    links and traversal paths are rejected. Use canonical paths and private files.
+   For script tasks, require the executor to wait for actual process exit,
+   polling the same execution session when its tool yields. An initial empty
+   output chunk is not completion. Request a bounded final report with explicit
+   errors and incomplete coverage.
 2. Run the local plan, then submit the same inputs for an authorized task:
 
    ```sh
@@ -28,6 +32,9 @@ Codex executor. The current host Codex/OpenClaw process remains outside that bou
 3. Keep the returned job identifier. Follow that job with
    `kingdom-aws status JOB`; use `kingdom-aws status` for the overall local state.
    Report the result and any denied, failed, or unscanned coverage.
+   Inspect the saved task report, not just the queue status: identity and cleanup
+   checks do not establish that the requested cloud reads completed. Empty,
+   error-only or partial reports cannot establish missing findings.
 
 `submit` snapshots the inputs and opens or reuses a finite 45-minute Terminal
 session. Tasks run serially because they share the dedicated subscription login.
