@@ -3,8 +3,9 @@
 Local Codex and OpenClaw AWS subtasks use the shared `kingdom-aws` command. It
 queues reviewed task JSON and a small input archive for the separate
 `aws-agent` runtime, reusing valid authentication and pausing only for the
-specific access that needs attention. The new queue/authentication workflow
-has **not yet passed its live check**; see [authentication automation](MAC_AUTH_AUTOMATION.md).
+specific access that needs attention. The queue completed its first inventory
+task on 19 September 2026, reusing existing AWS and runtime Codex logins after
+Mac password entry. See [authentication automation](MAC_AUTH_AUTOMATION.md).
 
 The underlying [routine runner](../infrastructure/agent-executor/run-task.py)
 completed its first inventory task on 19 September 2026. Network/DNS checks,
@@ -43,7 +44,10 @@ AWS/Codex caches into it.
 
 Routine submissions create a random `tasks/submitted-*` directory with private
 task and archive files. The runtime removes its recorded files and directory
-when the task finishes or unwinds. It does not retain input archives as history.
+when the task finishes or unwinds. The human-side queue separately retains
+private input snapshots, status and results under
+`~/.aws/agent-runtime/automation/jobs/`; runtime cleanup does not delete these
+records. There is no automatic queue-history pruning.
 
 ## Prepare task inputs
 
@@ -102,15 +106,18 @@ After reviewing that plan, submit the same files:
 
 `inventory` is the default tier. For an explicitly requested IAM metadata audit,
 use `--tier iam-audit` during both planning and submission. Both tiers use exact
-pinned role identities. A conflicting
-`AWS_PROFILE`, inherited credential override or unavailable scoped session stops
-the task; there is no administrator fallback. Native AWS SSO refresh is tried
-without asking for another browser sign-in on every job.
+pinned role identities. The worker starts child processes with a clean
+environment and explicitly selects the scoped profile; caller credential
+overrides are not inherited. Identity or access failures stop the task, with
+no administrator fallback. Native AWS SSO refresh is tried without asking for
+another browser sign-in on every job.
 
 If the job needs a worker or Mac authentication, run `kingdom-aws start`. Its
 Terminal prompts for the Mac password and any necessary browser approval.
-Use `kingdom-aws status JOB_ID` for the returned job ID. After a prerequisite
-is resolved, `kingdom-aws resume JOB_ID` continues only jobs blocked before
+The worker lasts at most 45 minutes and closes after 10 minutes idle.
+Use `kingdom-aws status JOB_ID` for the returned job ID. On success, read the
+private JSON file named by `result_file` for the task's redacted result.
+After a prerequisite is resolved, `kingdom-aws resume JOB_ID` continues only jobs blocked before
 execution. An actual task failure is never automatically replayed. See the
 [submit/auth-needed/resume flow](MAC_AUTH_AUTOMATION.md).
 
@@ -127,8 +134,9 @@ After VM, proxy, network or image rebuild/restart work, rerun the operational
 checks before submitting tasks, even if identifiers stayed the same. The
 initial subscription-login flow keeps its stricter 30-minute receipt limit.
 
-The runner prints the executor's bounded, redacted JSON result and returns a
-failure code for failed issuance, execution, identity checks or staging cleanup.
+The underlying runner returns the executor's bounded, redacted JSON result;
+the queue saves it privately and reports the job's final state. Failed issuance,
+execution, identity checks or staging cleanup prevent successful completion.
 Treat any model-written claim of task success as a summary to assess, not an
 independent audit record. The 600-second task and 35-second cleanup bounds also
 apply to routine submissions. Abrupt process or machine loss can require manual
@@ -157,11 +165,11 @@ stop for review. Authentication values remain private to the runtime.
 The smoke runner accepts only its fixed inventory verification. The routine
 runner provides reviewed task submission for inventory and explicit IAM audit
 using the [general executor](../infrastructure/agent-executor/README.md).
-The inventory flow is live-verified; IAM audit has profile-level allow/deny
-checks and offline runner tests, but no isolated model-task verification yet.
-Neither runner changes AWS permissions or provisions infrastructure. The shared
-queue and authentication automation are an additional layer whose live check
-is still pending; the existing verified runner remains its execution boundary.
+The inventory runner and shared queue's existing-login path are live-verified.
+Automatic browser-renewal branches have offline tests; IAM audit has profile-level
+allow/deny checks and offline runner tests, but no isolated model-task verification
+yet. Neither runner changes AWS permissions or provisions infrastructure. The
+shared queue uses the existing verified runner as its execution boundary.
 
 The existing host Codex/OpenClaw sessions remain outside this runtime boundary.
 Using these entrypoints does not redirect their AWS commands or remove their

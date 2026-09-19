@@ -28,7 +28,9 @@ subscription login, verified scoped AWS identity and successful cleanup.
 Follow the [Mac agent flow](docs/MAC_AGENT_FLOW.md). Existing host Codex/OpenClaw
 sessions are not automatically moved into that runtime.
 The shared `kingdom-aws` submission and [authentication workflow](docs/MAC_AUTH_AUTOMATION.md)
-is being added for both local tools; this new automation still needs its live check.
+also passed its first inventory task on 19 September, reusing existing AWS and
+runtime Codex authentication after Mac password entry. Automatic browser-renewal
+branches have offline tests; see [current evidence and limits](docs/STATUS.md).
 
 ## Start here
 

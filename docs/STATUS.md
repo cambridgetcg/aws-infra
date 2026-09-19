@@ -18,6 +18,7 @@ All times are UTC. Account, role and foundation observations below are dated
 | Access rebuild | [Additive foundation](../infrastructure/agent-access/README.md) deployed and verified at 17:17:45 UTC: two permission sets and two assignments to the verified existing user. No directory user was created. User scope remains preserving applications, read-only default and temporary named-project access. |
 | Profile checks | At 17:18:32 UTC, both profiles passed exact-role identity and temporary one-hour session checks. Inventory: EC2 VPC read allowed, IAM role listing denied. IAM audit: IAM role listing allowed, EC2 VPC read denied. Private verification receipt ends `171832.669636Z-agent-profile-verification.json`. |
 | Executor | [Dedicated Mac runtime](MAC_AGENT_FLOW.md) and Squid proxy use Docker Engine 28.4.0. On 19 September, refreshed 28-check network and DNS/cleanup verification passed at 08:53:42 against the same pinned runtime. The maintained `run-task.py` completed its first inventory task at 08:55:47.967; post-task inspection passed at 08:55:48. |
+| Local automation | The shared [`kingdom-aws` queue](MAC_AUTH_AUTOMATION.md) completed its first inventory task on 19 September at 09:40:57.235885, using existing AWS and runtime Codex logins after Mac password entry. Its final state includes successful runtime checks after task completion. Automatic browser-renewal branches have offline tests. |
 
 The trusted task result matched Cambridge account `034362054546` and the pinned
 inventory role ID. The model reported `vpc_count: 4`, `iam_list_roles: AccessDenied`
@@ -35,6 +36,24 @@ Its Terminal window can be closed. The reviewed private summary is
 `inventory/local/20260919T085548Z-isolated-inventory-verification.json`;
 it records source pins, timestamps, scoped results, cleanup and limits without
 authentication values or session identifiers.
+
+The later automated task's trusted result again matched Cambridge account
+`034362054546` and the pinned inventory role ID; its issued AWS session had expiry
+`2026-09-19T10:40:21+00:00`. The model reported four VPCs, expected IAM
+`AccessDenied` and overall success. The queue marked it successful only after
+the runtime authentication/schema, sole-proxy, absent-staging and matching-proof
+checks passed. No additional AWS or Codex browser approval was requested.
+This verifies reuse, not historical token rotation or expired-session renewal;
+there is no event journal establishing those events. The reviewed private
+summary is `inventory/local/20260919T094057Z-mac-auth-automation-verification.json`.
+
+A second authentication-only job passed at 09:41:55.420569 in the same worker,
+without another Mac password prompt or a model task. Its checks confirmed the
+scoped AWS identity and locally valid runtime authentication; it produced no task
+result file. The worker closed at 09:42:37.403267 after `kingdom-aws stop`, and
+status showed both jobs succeeded with no active session. That Terminal window
+can be closed. This establishes worker/session reuse; automated browser renewal
+and token refresh are not independently observed live events.
 
 The successful identity checks, inventory and retirement verification are dated
 observations. They do not establish an effective-permission audit of every resource or access
@@ -61,5 +80,7 @@ Captioneer IAM retirement is complete, with no replacement roles. This did not
 delete application storage, databases or other workload resources, reconcile
 archived Terraform state, or change keys, MFA, runtime configuration or GitHub
 environments. The isolated credential handoff and first model-driven inventory
-task are now verified. Existing host Codex/OpenClaw processes remain outside
-this runtime; named-project write access and their migration remain separate work.
+task and shared queue's existing-login path are now verified. Local Codex/OpenClaw
+can submit AWS subtasks through the shared command; their host processes remain
+outside this runtime. Named-project write access and migration of those processes
+remain separate work.

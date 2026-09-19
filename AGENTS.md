@@ -21,9 +21,10 @@ docs/OWNERSHIP.md before changing an account or an existing stack.
   is its default tier. Follow `docs/MAC_AGENT_FLOW.md` and
   `docs/MAC_AUTH_AUTOMATION.md` for submit/status/start/resume. Resume only a job
   blocked before execution; never automatically replay a failed or possibly
-  started task. The queue/authentication layer is awaiting its live check; its
-  underlying `infrastructure/agent-executor/run-task.py` inventory flow is
-  verified. This host shell retains human-side access.
+  started task. The queue's inventory path passed its live check on 19 September
+  2026 using existing AWS and runtime Codex authentication after Mac password
+  entry. Automatic browser-renewal branches have offline tests; this host shell
+  retains human-side access.
 - The bundled collector is read-only. Keep its command list explicit and its
   output limited to selected metadata. Do not add apply/delete/deploy behavior
   to the collector.

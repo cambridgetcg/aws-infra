@@ -3,9 +3,12 @@
 `kingdom-aws` is the shared submission command for local Codex and OpenClaw AWS
 subtasks. It uses a serialized queue and a temporary Terminal worker on this
 Mac. Inventory remains the default; IAM audit requires `--tier iam-audit`.
-The new queue/authentication workflow is being implemented and has **not yet
-passed a live check**. Its underlying inventory runtime was verified on
-19 September; see [current status](STATUS.md).
+Its first automated inventory job succeeded at 09:40:57 UTC on 19 September
+2026. The user entered the Mac password; existing AWS and dedicated Codex logins
+were reused without another browser approval. Automatic browser-renewal branches
+have offline tests. A second authentication-only check reused the same worker
+without another Mac password prompt; the worker then closed on request.
+See [current evidence and limits](STATUS.md).
 
 ## Submit, inspect and continue
 
@@ -21,7 +24,11 @@ Prepare reviewed task JSON and an uncompressed TAR as described in the
 `plan` validates locally. `submit` records the selected tier and input snapshot
 as a job; keep its returned job ID. An available worker processes jobs one at a
 time. Submitting a job does not grant administrator access or change its tier.
-Inspect one job with `kingdom-aws status JOB_ID`.
+Inspect one job with `kingdom-aws status JOB_ID`. A successful task's status
+includes `result_file`, the private JSON path containing its redacted result.
+The human queue retains input snapshots, status and results under
+`~/.aws/agent-runtime/automation/jobs/`; it does not automatically prune them.
+Temporary runtime input files are removed separately when the task finishes.
 
 If a worker or Mac authorization is needed, run:
 
@@ -29,10 +36,12 @@ If a worker or Mac authorization is needed, run:
 ~/.local/bin/kingdom-aws start
 ```
 
-This opens a finite, 45-minute Terminal worker. Enter the Mac password only at
-its Terminal password prompt. Browser authorization appears only for the
+This opens a Terminal worker lasting at most 45 minutes, or 10 minutes idle.
+Enter the Mac password only at its Terminal password prompt. Browser authorization appears only for the
 authentication that needs it. Keep that Terminal open while it is working.
 The worker installs no daemon, passwordless sudo rule or background login loop.
+Use `kingdom-aws stop` to close it after the current request finishes; confirm
+`session_active: false` with `kingdom-aws status` before closing its window.
 
 A job blocked **before execution** can continue after its prerequisite is fixed:
 
@@ -65,6 +74,10 @@ because multiple workers sharing a rotating login can invalidate each other's
 state. This flow keeps the selected subscription and does not switch to an API
 key or copy the human's Codex cache.
 [Official OpenAI authentication documentation](https://learn.chatgpt.com/docs/auth#login-caching).
+
+The live check established reuse and successful execution, not an observed token
+rotation or an expired-session renewal. Those events are not inferred from a
+successful job. The automated renewal paths are covered by offline tests.
 
 ## Errors that need a different response
 
